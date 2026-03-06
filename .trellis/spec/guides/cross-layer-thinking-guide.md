@@ -98,6 +98,20 @@ Reference executable contract:
 
 ---
 
+## Branch Strategy Thinking Checklist
+
+When deciding branch strategy for fork + upstream collaboration:
+- [ ] Is there a clean upstream mirror branch (`main`) with no product-only commits?
+- [ ] Are upstream PR branches created from mirror `main` instead of product branch?
+- [ ] Is product development isolated to a dedicated long-lived branch (e.g., `main-custom`)?
+- [ ] Is there a periodic sync plan from `main` into product branch?
+- [ ] Before force-pushing `origin/main`, did you verify unique commits that may be lost?
+
+Reference executable contract:
+- `backend/quality-guidelines.md` -> `Scenario: Branch Topology for Upstream Collaboration + Custom Product Line`
+
+---
+
 Create detailed flow docs when:
 - Feature spans 3+ layers
 - Multiple teams are involved

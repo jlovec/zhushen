@@ -360,7 +360,78 @@ notifications/
 
 ---
 
-## Code Review Checklist
+## Scenario: Branch Topology for Upstream Collaboration + Custom Product Line
+
+### 1. Scope / Trigger
+- Trigger: Repository workflow requires both upstream-compatible PRs and long-lived custom product commits.
+- Why code-spec depth is required:
+  - Git branch naming and source base are executable workflow contracts.
+  - Wrong base branch directly causes polluted PR diffs and force-push risk.
+  - Needs explicit merge/rebase and sync boundaries for `origin` vs `upstream`.
+
+### 2. Signatures
+- Long-lived branches:
+  - `main` (upstream mirror line)
+  - `main-custom` (product line)
+- Short-lived branches:
+  - `pr/<topic>` (upstream contribution branch, created from `main`)
+  - `feature/<topic>` (custom feature branch, created from `main-custom`)
+- Remote contracts:
+  - `upstream` = canonical repository
+  - `origin` = fork repository
+
+### 3. Contracts
+- Branch source contract:
+  - `pr/*` MUST branch from latest `main` (which mirrors `upstream/main`).
+  - `feature/*` MUST branch from latest `main-custom`.
+- Sync contract:
+  - `main` may be hard-reset to `upstream/main`.
+  - `main-custom` must absorb upstream via `merge main` (preferred) or `rebase main`.
+- PR contract:
+  - Upstream PR head MUST be `origin:pr/*`.
+  - `main-custom` commits MUST NOT be sent directly as upstream PR head.
+
+### 4. Validation & Error Matrix
+- Create upstream PR from `main-custom` -> error pattern: large unrelated diff; reject and recreate from `main`.
+- Commit custom features on `main` -> policy violation; cherry-pick to `main-custom`, then reset `main` to upstream.
+- Force-push `origin/main` without confirming impact -> high-risk operation; require explicit confirmation.
+- Let `main-custom` drift for too long -> merge conflict spike; schedule periodic upstream sync.
+
+### 5. Good/Base/Bad Cases
+- Good:
+  - `main == upstream/main`; upstream fix developed in `pr/fix-xxx`; custom roadmap in `main-custom`.
+- Base:
+  - No custom work yet; `main-custom` currently equals `main`.
+- Bad:
+  - Single long-lived branch used for both upstream PRs and product work; PRs contain unrelated commits.
+
+### 6. Tests Required (with assertion points)
+- Workflow checks (manual, required before opening PR):
+  - `git merge-base --is-ancestor upstream/main HEAD` on `pr/*` should pass.
+  - `git log --oneline upstream/main..HEAD` on `pr/*` should only show topic commits.
+  - `git rev-list --left-right --count upstream/main...main` should be `0\t0` after sync.
+- Hygiene checks:
+  - Before force-pushing `origin/main`, assert no required unique commits are only on `origin/main`.
+  - After syncing `main-custom` from `main`, run project smoke checks relevant to changed areas.
+
+### 7. Wrong vs Correct
+#### Wrong
+```bash
+# create upstream PR branch from custom line
+git checkout main-custom
+git checkout -b pr/fix-docker
+```
+
+#### Correct
+```bash
+# keep upstream PR branch clean from mirror main
+git fetch upstream
+git checkout main
+git reset --hard upstream/main
+git checkout -b pr/fix-docker
+```
+
+---
 
 ### Before Submitting
 

@@ -301,6 +301,90 @@ if (result.type === 'error') {
 
 ---
 
+## Scenario: Machine spawn RPC error normalization (Hub ↔ CLI)
+
+### 1. Scope / Trigger
+- Trigger: Cross-layer request/response contract handling changed for machine session spawn (`hub -> cli-runner` RPC).
+- Why spec-depth is required: Frontend `POST /api/machines/:id/spawn` depends on Hub returning a stable `{ type: 'success' | 'error' }` shape. Any RPC shape drift must be normalized at Hub boundary.
+
+### 2. Signatures
+- HTTP route: `POST /api/machines/:id/spawn` (`hub/src/web/routes/machines.ts`)
+- Hub service: `SyncEngine.spawnSession(...)` (`hub/src/sync/syncEngine.ts`)
+- Hub RPC gateway: `RpcGateway.spawnSession(...)` (`hub/src/sync/rpcGateway.ts`)
+- CLI machine RPC handler: `'spawn-happy-session'` (`cli/src/api/apiMachine.ts`)
+
+Expected Hub return type:
+```ts
+Promise<{ type: 'success'; sessionId: string } | { type: 'error'; message: string }>
+```
+
+### 3. Contracts
+- Request (Hub -> CLI machine RPC):
+  - `type: 'spawn-in-directory'`
+  - `directory: string`
+  - `agent?: 'claude' | 'codex' | 'cursor' | 'gemini' | 'opencode'`
+  - `model?: string`
+  - `yolo?: boolean`
+  - `sessionType?: 'simple' | 'worktree'`
+  - `worktreeName?: string`
+  - `resumeSessionId?: string`
+- Response candidates from CLI side (observed/allowed):
+  - `{ type: 'success'; sessionId: string }`
+  - `{ type: 'error'; errorMessage: string }`
+  - `{ error: string }` (serialized handler exception)
+  - `{ type: 'requestToApproveDirectoryCreation'; directory: string }`
+- Env keys impacting runtime path correctness:
+  - `HAPI_HOME` (required for runner state/logs)
+  - `HAPI_API_URL` (required for machine sync)
+  - `CLI_API_TOKEN` (required auth)
+
+### 4. Validation & Error Matrix
+- CLI returns `{ type: 'success', sessionId }` -> Hub returns success.
+- CLI returns `{ type: 'error', errorMessage }` -> Hub maps to `{ type: 'error', message: errorMessage }`.
+- CLI returns `{ error: string }` -> Hub maps to `{ type: 'error', message: error }`.
+- CLI returns `{ type: 'requestToApproveDirectoryCreation', directory }` -> Hub maps to explicit error message (`Directory does not exist: ...`) for Web flow.
+- Any other shape -> Hub returns `{ type: 'error', message: 'Unexpected spawn result' }`.
+
+### 5. Good/Base/Bad Cases
+- Good: Spawn succeeds, returns `sessionId`, Web creates session normally.
+- Base: Spawn fails with known runtime error (e.g. missing module), user sees real message instead of generic fallback.
+- Bad: Hub only accepts one error shape and surfaces `Unexpected spawn result`, hiding root cause.
+
+### 6. Tests Required (with assertion points)
+- Unit (Hub `RpcGateway.spawnSession`):
+  - given `{ error: 'x' }` -> assert returned `{ type: 'error', message: 'x' }`.
+  - given `{ type: 'requestToApproveDirectoryCreation', directory: '/tmp/a' }` -> assert returned message contains directory.
+  - given unknown object -> assert fallback `'Unexpected spawn result'`.
+- Integration (Hub + CLI runner):
+  - force spawn handler exception -> assert HTTP `/api/machines/:id/spawn` returns JSON with non-empty `message`, not generic fallback when parseable.
+- Regression:
+  - verify existing success path unchanged (`type === 'success'`, valid `sessionId`).
+
+### 7. Wrong vs Correct
+#### Wrong
+```ts
+if (obj.type === 'error' && typeof obj.errorMessage === 'string') {
+  return { type: 'error', message: obj.errorMessage }
+}
+return { type: 'error', message: 'Unexpected spawn result' }
+```
+
+#### Correct
+```ts
+if (obj.type === 'error' && typeof obj.errorMessage === 'string') {
+  return { type: 'error', message: obj.errorMessage }
+}
+if (typeof obj.error === 'string') {
+  return { type: 'error', message: obj.error }
+}
+if (obj.type === 'requestToApproveDirectoryCreation' && typeof obj.directory === 'string') {
+  return { type: 'error', message: `Directory does not exist: ${obj.directory}` }
+}
+return { type: 'error', message: 'Unexpected spawn result' }
+```
+
+---
+
 ## Logging Errors
 
 ### Console Logging
