@@ -18,7 +18,8 @@ RUN bun install --frozen-lockfile
 COPY . .
 
 # Claude Code binary required by hapi CLI runtime
-RUN npm install -g @anthropic-ai/claude-code
+RUN bun add -g @anthropic-ai/claude-code \
+    && ln -sf /root/.bun/bin/claude /usr/local/bin/claude
 
 ENV HAPI_HOME=/data/hapi
 ENV HAPI_API_URL=http://hub:3006
