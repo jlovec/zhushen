@@ -98,6 +98,20 @@ Reference executable contract:
 
 ---
 
+## PR Automation Thinking Checklist
+
+When running automated post-coding PR workflow:
+- [ ] Did we run branch topology audit before creating PR?
+- [ ] Is PR branch based on `upstream/main` instead of product-only branch?
+- [ ] Before squash/rebase/PR replacement, did we create `backup/safety-*`?
+- [ ] Are we only auto-fixing blocking review/PIA items (not speculative suggestions)?
+- [ ] If replacing PR, was the new PR created and linked before closing the old one?
+
+Reference executable contract:
+- `backend/quality-guidelines.md` -> `Scenario: Automated Clean PR Delivery Loop (Branch Governor + PR Autopilot)`
+
+---
+
 ## Branch Strategy Thinking Checklist
 
 When deciding branch strategy for fork + upstream collaboration:

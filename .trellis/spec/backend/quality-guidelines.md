@@ -433,6 +433,97 @@ git checkout -b pr/fix-docker
 
 ---
 
+## Scenario: Automated Clean PR Delivery Loop (Branch Governor + PR Autopilot)
+
+### 1. Scope / Trigger
+- Trigger: After code implementation, workflow requires automated branch governance, clean PR creation, review-driven iteration, and optional PR replacement.
+- Why code-spec depth is required:
+  - This flow executes hard-to-reverse git/gh operations (`squash/rebase/close PR/reopen PR`).
+  - It spans local git state, fork remote (`origin`), upstream remote (`upstream`), and GitHub PR state.
+  - Missing explicit safety contracts can lose commits or create polluted PR history.
+
+### 2. Signatures
+- Command signatures:
+  - `/trellis:branch-governor`
+  - `/trellis:pr-autopilot`
+- Recommended runtime args:
+  - branch-governor: `mode=audit|fix`, `base=upstream/main`, `protect=product/main,contrib/upstream-main`, `splitPR=true|false`
+  - pr-autopilot: `base=upstream/main`, `head=<feature-branch>`, `squash=one|auto|keep`, `watch=on|off`, `maxIterations=<int>`, `allowReopen=true|false`
+- Branch role signatures:
+  - `product/main`: product-only long-lived line
+  - `contrib/upstream-main`: clean upstream contribution baseline
+  - `contrib/<topic>`: per-feature PR branch created from `upstream/main`
+  - `backup/safety-*`: non-loss safety anchors before history rewrite or PR replacement
+
+### 3. Contracts
+- Safety contract:
+  - Any operation that may rewrite history or replace PR MUST create `backup/safety-*` first.
+- Source contract:
+  - Upstream PR head MUST be based on `upstream/main` lineage, not product-only lineage.
+- Commit hygiene contract:
+  - `contrib/<topic>` SHOULD contain one topic-focused commit when feasible; if not feasible, commit set must still be single-topic.
+- Review loop contract:
+  - Only blocking review/PIA issues are auto-applied.
+  - Non-blocking suggestions are batched into recommendation output, not blindly auto-committed.
+- Replacement contract:
+  - Close old PR only after new replacement PR exists and is referenced in close comment.
+
+### 4. Validation & Error Matrix
+- Missing safety anchor before rebase/squash/close PR -> policy violation; stop and create backup branch first.
+- `contrib/*` branch not descendant of `upstream/main` -> high-risk polluted diff; recreate clean branch and cherry-pick topic commits.
+- PR contains unrelated commits/files -> split by feature and reopen/replace PR.
+- CI green but blocking review exists -> do not mark ready; iterate fix loop.
+- Review comments ambiguous/non-reproducible -> output focused clarification plan instead of speculative code edits.
+- Attempt to close PR before replacement PR exists -> reject operation.
+
+### 5. Good/Base/Bad Cases
+- Good:
+  - `branch-governor` audits topology, routes commits by function, then `pr-autopilot` opens a clean Chinese PR and iterates until no blocking signals.
+- Base:
+  - PR created cleanly; one blocking review comment handled in one additional fix commit.
+- Bad:
+  - Direct PR from product branch with private config commits, repeated force-push without safety anchor, and speculative fixes to non-blocking comments.
+
+### 6. Tests Required (with assertion points)
+- Topology assertions:
+  - `git merge-base --is-ancestor upstream/main HEAD` on `contrib/<topic>` must pass.
+  - `git log --oneline upstream/main..HEAD` on PR branch contains only topic commits.
+- Safety assertions:
+  - Before rewrite operations, verify `refs/heads/backup/safety-*` exists.
+- PR lifecycle assertions:
+  - New PR creation returns valid URL.
+  - Replacement flow asserts: new PR exists -> old PR close comment includes replacement reference.
+- Review loop assertions:
+  - Blocking comments produce concrete fix plan entries.
+  - Non-blocking comments are reported but not auto-committed unless explicitly requested.
+
+### 7. Wrong vs Correct
+#### Wrong
+```bash
+# open PR directly from product line with mixed commits
+git checkout product/main
+gh pr create --base main --head product/main
+# then force-push repeatedly without backup
+```
+
+#### Correct
+```bash
+# 1) create safety anchor before rewrite/split
+git branch backup/safety-pr-<date> HEAD
+
+# 2) create clean contrib branch from upstream baseline
+git fetch upstream
+git checkout -b contrib/<topic> upstream/main
+git cherry-pick <topic-commits>
+
+# 3) open PR from clean branch
+gh pr create --base main --head <fork>:contrib/<topic>
+
+# 4) if replacement needed: open new PR first, then close old PR with replacement link
+```
+
+---
+
 ### Before Submitting
 
 - [ ] `bun run typecheck` passes (no TypeScript errors)
