@@ -47,7 +47,7 @@ docker compose up -d hub cli-runner
 
 - `CLI_API_TOKEN`: shared secret used by both hub and CLI
 - `HAPI_API_URL`: hub URL for CLI (`http://hub:3006` inside compose network)
-- `CLAUDE_CONFIG_DIR`: optional host path mounted into container for Claude Code auth/session config (default: `~/.claude`)
+- `CLAUDE_CONFIG_DIR`: required host absolute path mounted into container for Claude Code auth/session config
 
 ### CLI modes
 

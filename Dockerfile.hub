@@ -17,6 +17,9 @@ RUN bun install --frozen-lockfile
 
 COPY . .
 
+# Build web assets so Hub can serve Mini App in container runtime
+RUN bun run build:web
+
 EXPOSE 3006
 
 ENV HAPI_LISTEN_HOST=0.0.0.0

@@ -34,7 +34,7 @@ services:
       HAPI_CLAUDE_PATH: ${HAPI_CLAUDE_PATH:-/usr/local/bin/claude}
     volumes:
       - cli-data:/data/hapi
-      - ${CLAUDE_CONFIG_DIR:-~/.claude}:/root/.claude
+      - ${CLAUDE_CONFIG_DIR:?set CLAUDE_CONFIG_DIR}:/root/.claude
     depends_on:
       - hub
     restart: unless-stopped
@@ -55,7 +55,7 @@ services:
       HAPI_CLAUDE_PATH: ${HAPI_CLAUDE_PATH:-/usr/local/bin/claude}
     volumes:
       - cli-data:/data/hapi
-      - ${CLAUDE_CONFIG_DIR:-~/.claude}:/root/.claude
+      - ${CLAUDE_CONFIG_DIR:?set CLAUDE_CONFIG_DIR}:/root/.claude
     depends_on:
       - hub
     entrypoint: ["bun", "run", "--cwd", "cli", "src/index.ts"]
