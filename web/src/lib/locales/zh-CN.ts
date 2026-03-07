@@ -48,6 +48,7 @@ export default {
   'session.item.model': '模型',
   'session.item.modelMode': '模型',
   'session.item.worktree': '工作树',
+  'session.item.hostPrefix': '主机',
   'session.item.pending': '待处理',
   'session.item.thinking': '思考中',
   'session.time.justNow': '刚刚',
@@ -58,6 +59,11 @@ export default {
   // Session header
   'session.title': '文件',
   'session.more': '更多操作',
+  'session.git.staged': '{n} 已暂存',
+  'session.git.unstaged': '{n} 未暂存',
+  'session.git.unavailable': 'Git 不可用',
+  'session.git.loading': 'Git 加载中…',
+  'session.git.detached': '游离头指针',
 
   // Session actions
   'session.action.rename': '重命名',
@@ -145,6 +151,10 @@ export default {
 
   // Code block
   'code.copy': '复制',
+
+  // Long content collapse
+  'content.collapse.close': '收起长消息',
+  'content.collapse.openWithHidden': '展开长消息（已隐藏部分）',
 
   // Diff view
   'diff.title': '差异',

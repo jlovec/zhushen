@@ -48,6 +48,7 @@ export default {
   'session.item.model': 'model',
   'session.item.modelMode': 'mode',
   'session.item.worktree': 'worktree',
+  'session.item.hostPrefix': 'HOST',
   'session.item.pending': 'pending',
   'session.item.thinking': 'thinking',
   'session.time.justNow': 'just now',
@@ -58,6 +59,11 @@ export default {
   // Session header
   'session.title': 'Files',
   'session.more': 'More actions',
+  'session.git.staged': '{n} staged',
+  'session.git.unstaged': '{n} unstaged',
+  'session.git.unavailable': 'Git unavailable',
+  'session.git.loading': 'Git loading\u2026',
+  'session.git.detached': 'detached',
 
   // Session actions
   'session.action.rename': 'Rename',
@@ -143,6 +149,10 @@ export default {
 
   // Code block
   'code.copy': 'Copy',
+
+  // Long content collapse
+  'content.collapse.close': 'Collapse long content',
+  'content.collapse.openWithHidden': 'Expand long content (partially hidden)',
 
   // Diff view
   'diff.title': 'Diff',
