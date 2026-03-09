@@ -140,6 +140,27 @@ Reference executable contract:
 
 ---
 
+## Monorepo Workspace Dependency Checklist (Build Path)
+
+When fixing build failures in a Bun workspace monorepo (`web`/`hub`/`cli` + shared package):
+- [ ] Does every imported workspace package name exactly match the producer package `name` field?
+- [ ] Did you run dependency installation at repository root after rename or workspace metadata changes?
+- [ ] Is the dependency link visible from the consumer (`web/node_modules/<pkg>`) before diagnosing bundler config?
+- [ ] If Vite/Rollup says "failed to resolve import", did you verify package linking first (before alias/external workarounds)?
+- [ ] Is there a CI/local prebuild check that validates workspace links for critical shared packages?
+
+Typical failure pattern:
+- Import path in app code is correct, but workspace links are stale/missing because install step was skipped after package rename.
+- Symptom appears as bundler resolution error, but root cause is dependency graph state.
+
+Recommended fast verification:
+1. Check producer package name (e.g. `shared/package.json`).
+2. Check consumer dependency declaration (e.g. `web/package.json`).
+3. Verify installed link in consumer `node_modules`.
+4. Run root install (`bun install`) and rebuild.
+
+---
+
 Create detailed flow docs when:
 - Feature spans 3+ layers
 - Multiple teams are involved
