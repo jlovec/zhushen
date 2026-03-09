@@ -49,3 +49,5 @@ cli/npm/main/
 .trellis/task/
 .trellis/tasks/
 .trellis/tasks/archive/
+
+cli/npm/*/bin/
