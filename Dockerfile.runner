@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
 
-FROM oven/bun:1.3.10
+FROM oven/bun:1.3.10 AS tooling
 
 # ---- Core tool versions (pinned) ---------------------------
 ARG NODE_DEFAULT=22
@@ -21,7 +21,6 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         bash \
         curl \
-        dstat \
         git \
         ca-certificates \
         xz-utils \
@@ -40,7 +39,7 @@ ENV PNPM_HOME=/usr/local/pnpm
 ENV PATH="${PNPM_HOME}:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/local/bun-node-fallback-bin"
 RUN mkdir -p "${NVM_DIR}" "${PNPM_HOME}" \
     && curl -fsSL "https://raw.githubusercontent.com/nvm-sh/nvm/${NVM_VERSION}/install.sh" | bash \
-    && bash -lc "set -e; source ${NVM_DIR}/nvm.sh; nvm install 20; nvm install ${NODE_DEFAULT}; nvm alias default ${NODE_DEFAULT}; nvm use default >/dev/null; npm install -g pnpm@${PNPM_VERSION} yarn; ln -sf \"\$(command -v node)\" /usr/local/bin/node; ln -sf \"\$(command -v npm)\" /usr/local/bin/npm; ln -sf \"\$(command -v npx)\" /usr/local/bin/npx; ln -sf \"\$(command -v pnpm)\" /usr/local/bin/pnpm; ln -sf \"\$(command -v yarn)\" /usr/local/bin/yarn"
+    && bash -lc "set -e; source ${NVM_DIR}/nvm.sh; nvm install 20; nvm install ${NODE_DEFAULT}; nvm alias default ${NODE_DEFAULT}; nvm use default >/dev/null; npm install -g pnpm@${PNPM_VERSION} yarn @anthropic-ai/claude-code; ln -sf \"\$(command -v node)\" /usr/local/bin/node; ln -sf \"\$(command -v npm)\" /usr/local/bin/npm; ln -sf \"\$(command -v npx)\" /usr/local/bin/npx; ln -sf \"\$(command -v pnpm)\" /usr/local/bin/pnpm; ln -sf \"\$(command -v yarn)\" /usr/local/bin/yarn; ln -sf \"\$(command -v claude)\" /usr/local/bin/claude"
 
 # Go manager: goenv
 ENV GOENV_ROOT=/usr/local/goenv
@@ -51,28 +50,23 @@ RUN git clone https://github.com/go-nv/goenv.git "${GOENV_ROOT}" \
 # ---- Install workspace dependencies (layer cache) -----------
 COPY package.json bun.lock ./
 COPY cli/package.json ./cli/package.json
-COPY hub/package.json ./hub/package.json
 COPY shared/package.json ./shared/package.json
+COPY hub/package.json ./hub/package.json
 COPY web/package.json ./web/package.json
-COPY docs/package.json ./docs/package.json
 COPY website/package.json ./website/package.json
+COPY docs/package.json ./docs/package.json
 
-RUN bun install --frozen-lockfile
+RUN --mount=type=cache,target=/root/.bun/install/cache \
+    bun install --frozen-lockfile
 
 COPY . .
 
 # ---- Global CLI tools ----------------------------------------
 RUN pnpm install -g mcp-swagger-server @mindfoldhq/trellis ux zcf
 
-# ---- zcf default initialization (build-time) -----------------
-RUN mkdir -p /usr/local/share/claude-default \
-    && HOME=/tmp/zcf-home zcf init --skip-prompt --config-action new --all-lang zh-CN --ai-output-lang zh-CN --code-type claude-code --api-type skip --api-model "${CLAUDE_PRIMARY_MODEL}" --api-haiku-model "${CLAUDE_HAIKU_MODEL}" --api-sonnet-model "${CLAUDE_SONNET_MODEL}" --api-opus-model "${CLAUDE_OPUS_MODEL}" --output-styles all --default-output-style nekomata-engineer --workflows all --mcp-services Playwright,serena --install-cometix-line false \
-    && mkdir -p /tmp/zcf-home/.claude/commands/zcf /tmp/zcf-home/.claude/agents/zcf \
-    && find /tmp/zcf-home/.claude/commands/zcf -maxdepth 1 -type f ! -name 'init-project.md' -delete \
-    && find /tmp/zcf-home/.claude/agents/zcf -mindepth 1 -maxdepth 1 ! -name 'common' -exec rm -rf {} + \
-    && node -e "const fs=require('fs');const p='/tmp/zcf-home/.claude/settings.json';const j=JSON.parse(fs.readFileSync(p,'utf8'));if(j.permissions&&Array.isArray(j.permissions.allow)){j.permissions.allow=j.permissions.allow.filter(x=>!x.startsWith('mcp__')||x==='mcp__Playwright'||x==='mcp__serena');}fs.writeFileSync(p,JSON.stringify(j,null,2)+'\\n');" \
-    && cp -a /tmp/zcf-home/.claude/. /usr/local/share/claude-default/ \
-    && rm -rf /tmp/zcf-home
+# ---- Cleanup transient caches -------------------------------
+RUN rm -rf /root/.cache /tmp/*
+
 # ---- zs CLI wrapper ------------------------------------------
 RUN printf '#!/usr/bin/env sh\nexec bun run --cwd /app/cli src/index.ts "$@"\n' > /usr/local/bin/zs \
     && chmod +x /usr/local/bin/zs
@@ -81,9 +75,49 @@ RUN printf '#!/usr/bin/env sh\nexec bun run --cwd /app/cli src/index.ts "$@"\n' 
 COPY docker/entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
+
+FROM oven/bun:1.3.10 AS runtime
+
+WORKDIR /app
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        bash \
+        curl \
+        git \
+        ca-certificates \
+        xz-utils \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=tooling /usr/local/nvm /usr/local/nvm
+COPY --from=tooling /usr/local/goenv /usr/local/goenv
+COPY --from=tooling /usr/local/pnpm /usr/local/pnpm
+COPY --from=tooling /usr/local/bin /usr/local/bin
+
+COPY package.json bun.lock ./
+COPY cli/package.json ./cli/package.json
+COPY shared/package.json ./shared/package.json
+COPY hub/package.json ./hub/package.json
+COPY web/package.json ./web/package.json
+COPY website/package.json ./website/package.json
+COPY docs/package.json ./docs/package.json
+
+RUN --mount=type=cache,target=/root/.bun/install/cache \
+    bun install --frozen-lockfile --production --filter @jlovec/zhushen --filter @zs/protocol \
+    && rm -rf /root/.cache /tmp/*
+
+COPY cli ./cli
+COPY shared ./shared
+COPY docker/entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
 # ---- Default environment -------------------------------------
-ENV ZS_HOME=/data/zhushen
-ENV ZS_API_URL=http://hub:3006
+ENV NVM_DIR=/usr/local/nvm
+ENV GOENV_ROOT=/usr/local/goenv
+ENV PNPM_HOME=/usr/local/pnpm
+ENV PATH="${GOENV_ROOT}/bin:${GOENV_ROOT}/shims:${PNPM_HOME}:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+ENV ZS_HOME=/data
+ENV ZS_API_URL=http://zs-hub:3006
 ENV ZS_CLAUDE_PATH=/usr/local/bin/claude
 ENV ZS_GO_VERSION=1.24.3
 ENV ZS_NODE_VERSION=22

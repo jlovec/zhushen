@@ -1,9 +1,9 @@
 services:
-  hub:
+  zs-hub:
     build:
       context: .
       dockerfile: Dockerfile.hub
-    image: zhushen-hub:local
+    image: zs-hub:local
     env_file:
       - .env
     environment:
@@ -18,18 +18,16 @@ services:
       - hub-data:/data/zhushen
     restart: unless-stopped
 
-  cli-runner:
+  zs-runner:
     build:
       context: .
-      dockerfile: Dockerfile.cli
-    image: zhushen-cli:local
+      dockerfile: Dockerfile.runner
+    image: zs-runner:local
     env_file:
       - .env
     environment:
-      ZS_HOME: /data/zhushen
-      ZS_API_URL: ${ZS_API_URL:-http://hub:3006}
+      ZS_API_URL: ${ZS_API_URL:-http://zs-hub:3006}
       CLI_API_TOKEN: ${CLI_API_TOKEN}
-      ZS_CLAUDE_PATH: ${ZS_CLAUDE_PATH:-/usr/local/bin/claude}
       ZS_GO_VERSION: ${ZS_GO_VERSION:-1.24.3}
       ZS_NODE_VERSION: ${ZS_NODE_VERSION:-22}
       ZCF_API_KEY: ${ZCF_API_KEY:-}
@@ -42,47 +40,12 @@ services:
       ZCF_ALL_LANG: ${ZCF_ALL_LANG:-}
       ZCF_AI_OUTPUT_LANG: ${ZCF_AI_OUTPUT_LANG:-}
     volumes:
-      - cli-data:/data/zhushen
+      - runner-data:/data
       - ${CLAUDE_CONFIG_DIR:?set CLAUDE_CONFIG_DIR}:/root/.claude
     depends_on:
-      - hub
+      - zs-hub
     restart: unless-stopped
-
-  cli:
-    build:
-      context: .
-      dockerfile: Dockerfile.cli
-    image: zhushen-cli:local
-    profiles:
-      - interactive
-    env_file:
-      - .env
-    environment:
-      ZS_HOME: /data/zhushen
-      ZS_API_URL: ${ZS_API_URL:-http://hub:3006}
-      CLI_API_TOKEN: ${CLI_API_TOKEN}
-      ZS_CLAUDE_PATH: ${ZS_CLAUDE_PATH:-/usr/local/bin/claude}
-      ZS_GO_VERSION: ${ZS_GO_VERSION:-1.24.3}
-      ZS_NODE_VERSION: ${ZS_NODE_VERSION:-22}
-      ZCF_API_KEY: ${ZCF_API_KEY:-}
-      ZCF_API_URL: ${ZCF_API_URL:-}
-      ZCF_API_MODEL: ${ZCF_API_MODEL:-}
-      ZCF_API_HAIKU_MODEL: ${ZCF_API_HAIKU_MODEL:-}
-      ZCF_API_SONNET_MODEL: ${ZCF_API_SONNET_MODEL:-}
-      ZCF_API_OPUS_MODEL: ${ZCF_API_OPUS_MODEL:-}
-      ZCF_DEFAULT_OUTPUT_STYLE: ${ZCF_DEFAULT_OUTPUT_STYLE:-}
-      ZCF_ALL_LANG: ${ZCF_ALL_LANG:-}
-      ZCF_AI_OUTPUT_LANG: ${ZCF_AI_OUTPUT_LANG:-}
-    volumes:
-      - cli-data:/data/zhushen
-      - ${CLAUDE_CONFIG_DIR:?set CLAUDE_CONFIG_DIR}:/root/.claude
-    depends_on:
-      - hub
-    entrypoint: ["docker-entrypoint.sh", "bun", "run", "--cwd", "cli", "src/index.ts"]
-    command: ["--help"]
-    stdin_open: true
-    tty: true
 
 volumes:
   hub-data:
-  cli-data:
+  runner-data:

@@ -915,12 +915,12 @@ zs --help
 ### 1. Scope / Trigger
 - Trigger: Docker CLI image switched to zcf-driven Claude config with runtime env override support.
 - Why code-spec depth is required:
-  - Infra integration changed (`Dockerfile.cli` build phase + `docker/entrypoint.sh` runtime phase).
+  - Infra integration changed (`Dockerfile.runner` build phase + `docker/entrypoint.sh` runtime phase).
   - New executable env contract (`ZCF_*`, `CLAUDE_CONFIG_DIR`) controls mounted config behavior.
   - Runtime override semantics must be testable to avoid accidental config loss or silent non-override.
 
 ### 2. Signatures
-- Build-time signature (`Dockerfile.cli`):
+- Build-time signature (`Dockerfile.runner`):
   - Global install: `pnpm install -g ... zcf`
   - Default generation:
     - `HOME=/tmp/zcf-home zcf init --skip-prompt --config-action new ... --default-output-style nekomata-engineer --workflows all --mcp-services Playwright,serena`
@@ -975,7 +975,7 @@ zs --help
 ### 6. Tests Required (with assertion points)
 - Build checks:
   - `docker build --check -f Dockerfile.cli .` passes.
-  - `docker build -t zhushen-cli:zcf -f Dockerfile.cli .` passes.
+  - `docker build -t zhushen-runner:zcf -f Dockerfile.cli .` passes.
 - Compose checks:
   - `docker compose config --quiet` passes with required `.env` presence.
 - Runtime behavior matrix:
@@ -983,13 +983,13 @@ zs --help
   - Case B (non-empty mount, no vars): assert original `outputStyle` unchanged.
   - Case C (non-empty mount, with `ZCF_DEFAULT_OUTPUT_STYLE`): assert overridden `outputStyle` equals env value.
 - Security checks:
-  - `docker history --format '{{.CreatedBy}}' zhushen-cli:zcf` contains no API key literal.
+  - `docker history --format '{{.CreatedBy}}' zhushen-runner:zcf` contains no API key literal.
 
 ### 7. Wrong vs Correct
 #### Wrong
 ```sh
 # Expect merge mode to overwrite existing keys automatically
-docker run --rm -e ZCF_DEFAULT_OUTPUT_STYLE=engineer-professional -v "$PWD/.claude:/root/.claude" zhushen-cli:zcf
+docker run --rm -e ZCF_DEFAULT_OUTPUT_STYLE=engineer-professional -v "$PWD/.claude:/root/.claude" zhushen-runner:zcf
 # outputStyle may stay old if no explicit post-merge patch exists
 ```
 
@@ -997,7 +997,7 @@ docker run --rm -e ZCF_DEFAULT_OUTPUT_STYLE=engineer-professional -v "$PWD/.clau
 ```sh
 # Keep merge for non-destructive behavior, then explicitly patch provided keys
 # in ${CLAUDE_CONFIG_DIR}/settings.json for deterministic runtime override.
-docker run --rm -e ZCF_DEFAULT_OUTPUT_STYLE=engineer-professional -v "$PWD/.claude:/root/.claude" zhushen-cli:zcf
+docker run --rm -e ZCF_DEFAULT_OUTPUT_STYLE=engineer-professional -v "$PWD/.claude:/root/.claude" zhushen-runner:zcf
 # assert settings.json.outputStyle == engineer-professional
 ```
 

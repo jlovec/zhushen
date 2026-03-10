@@ -1,10 +1,8 @@
 # syntax=docker/dockerfile:1.7
 
-FROM oven/bun:1.3.10
-
+FROM oven/bun:1.3.10 AS deps
 WORKDIR /app
 
-# Install workspace dependencies first for better caching
 COPY package.json bun.lock ./
 COPY cli/package.json ./cli/package.json
 COPY hub/package.json ./hub/package.json
@@ -13,12 +11,30 @@ COPY web/package.json ./web/package.json
 COPY docs/package.json ./docs/package.json
 COPY website/package.json ./website/package.json
 
-RUN bun install --frozen-lockfile
+RUN --mount=type=cache,target=/root/.bun/install/cache \
+    bun install --frozen-lockfile
 
+FROM deps AS web-build
 COPY . .
-
-# Build web assets so Hub can serve Mini App in container runtime
 RUN bun run build:web
+
+FROM oven/bun:1.3.10 AS runtime
+WORKDIR /app
+
+COPY package.json bun.lock ./
+COPY cli/package.json ./cli/package.json
+COPY hub/package.json ./hub/package.json
+COPY shared/package.json ./shared/package.json
+COPY web/package.json ./web/package.json
+COPY docs/package.json ./docs/package.json
+COPY website/package.json ./website/package.json
+
+RUN --mount=type=cache,target=/root/.bun/install/cache \
+    bun install --frozen-lockfile --production
+
+COPY hub ./hub
+COPY shared ./shared
+COPY --from=web-build /app/web/dist ./web/dist
 
 EXPOSE 3006
 
@@ -26,5 +42,4 @@ ENV ZS_LISTEN_HOST=0.0.0.0
 ENV ZS_LISTEN_PORT=3006
 ENV ZS_HOME=/data/zhushen
 
-# Run hub directly from source (same as local dev behavior)
 CMD ["bun", "run", "--cwd", "hub", "src/index.ts"]

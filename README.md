@@ -61,21 +61,21 @@ export ZS_HOME="~/.zhushen"
 cp -r ~/.hapi/* ~/.zhushen/
 ```
 
-## Docker (Hub + CLI)
+## Docker (zs-hub + zs-runner)
 
-使用 Docker 将 hub 和 CLI 作为独立服务运行。CLI 镜像预装了常用开发/运维工具，并支持运行时切换 Go/Node.js 版本。
+使用 Docker 将 hub 和 runner 作为独立服务运行。runner 镜像预装了常用开发/运维工具，并支持运行时切换 Go/Node.js 版本。
 
 ```bash
 cp .env.example .env
 # 先在 .env 中设置 CLI_API_TOKEN 和 CLAUDE_CONFIG_DIR
 
-docker compose up -d hub cli-runner
+docker compose up -d zs-hub zs-runner
 ```
 
 ### 配置
 
-- `CLI_API_TOKEN`: hub 和 CLI 共用的密钥
-- `ZS_API_URL`: CLI 连接 hub 的 URL (compose 网络内为 `http://hub:3006`)
+- `CLI_API_TOKEN`: zs-hub 和 zs-runner 共用的密钥
+- `ZS_API_URL`: CLI 连接 hub 的 URL (compose 网络内为 `http://zs-hub:3006`)
 - `CLAUDE_CONFIG_DIR`: 挂载到容器的 Claude Code 认证/会话配置的宿主机绝对路径（必填）
 - `ZS_GO_VERSION`: 运行时 Go 版本（默认 `1.24.3`，由 goenv 管理）
 - `ZS_NODE_VERSION`: 运行时 Node.js 主版本号（默认 `22`，由 nvm 管理）
@@ -89,28 +89,18 @@ docker compose up -d hub cli-runner
 - `ZCF_ALL_LANG`: 运行时统一覆盖语言参数
 - `ZCF_AI_OUTPUT_LANG`: 运行时覆盖 AI 输出语言
 
-### CLI 模式
+### 运行模式
 
-- 默认服务: `cli-runner` (前台运行 `zs runner start-sync`)
-- 可选交互模式:
+- 默认服务: `zs-runner` (前台运行 `zs runner start-sync`)
+- 仅保留 `zs-hub` + `zs-runner`，不再提供 compose 交互 profile 服务。
 
-```bash
-docker compose --profile interactive run --rm cli
-```
-
-也可以覆盖命令，例如:
-
-```bash
-docker compose --profile interactive run --rm cli --help
-```
-
-详细使用方法请参阅 [CLI Docker 独立使用指南](docs/guide/docker-cli.md)。
+详细使用方法请参阅 [Runner Docker 独立使用指南](docs/guide/docker-runner.md)。
 
 ## 文档
 
 - [快速开始](docs/guide/quick-start.md)
 - [安装与部署](docs/guide/installation.md)
-- [CLI Docker 使用](docs/guide/docker-cli.md)
+- [Runner Docker 使用](docs/guide/docker-runner.md)
 - [工作原理](docs/guide/how-it-works.md)
 - [应用](docs/guide/pwa.md)
 - [Cursor Agent](docs/guide/cursor.md)

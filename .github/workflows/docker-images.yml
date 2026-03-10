@@ -43,10 +43,10 @@ jobs:
         include:
           - name: hub
             dockerfile: Dockerfile.hub
-            image: ghcr.io/${{ github.repository_owner }}/zhushen-hub
-          - name: cli
-            dockerfile: Dockerfile.cli
-            image: ghcr.io/${{ github.repository_owner }}/zhushen-cli
+            image: ghcr.io/${{ github.repository_owner }}/zs-hub
+          - name: runner
+            dockerfile: Dockerfile.runner
+            image: ghcr.io/${{ github.repository_owner }}/zs-runner
 
     steps:
       - name: Checkout

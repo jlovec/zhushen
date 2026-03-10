@@ -304,7 +304,7 @@ if (result.type === 'error') {
 ## Scenario: Machine spawn RPC error normalization (Hub ↔ CLI)
 
 ### 1. Scope / Trigger
-- Trigger: Cross-layer request/response contract handling changed for machine session spawn (`hub -> cli-runner` RPC).
+- Trigger: Cross-layer request/response contract handling changed for machine session spawn (`hub -> zs-runner` RPC).
 - Why spec-depth is required: Frontend `POST /api/machines/:id/spawn` depends on Hub returning a stable `{ type: 'success' | 'error' }` shape. Any RPC shape drift must be normalized at Hub boundary.
 
 ### 2. Signatures

@@ -1,4 +1,4 @@
-#!/usr/bin/env sh
+#!/usr/bin/env bash
 set -e
 
 # Runtime version switch via managers:
@@ -43,12 +43,19 @@ fi
 
 CLAUDE_CONFIG_DIR="${CLAUDE_CONFIG_DIR:-/root/.claude}"
 export CLAUDE_CONFIG_DIR
-CLAUDE_DEFAULT_DIR="/usr/local/share/claude-default"
 
 mkdir -p "${CLAUDE_CONFIG_DIR}"
-if [ -d "${CLAUDE_DEFAULT_DIR}" ] && [ -z "$(ls -A "${CLAUDE_CONFIG_DIR}" 2>/dev/null)" ]; then
-    echo "[entrypoint] Bootstrapping Claude config from image defaults..." >&2
-    cp -a "${CLAUDE_DEFAULT_DIR}/." "${CLAUDE_CONFIG_DIR}/"
+if [ -z "$(ls -A "${CLAUDE_CONFIG_DIR}" 2>/dev/null)" ]; then
+    echo "[entrypoint] Claude config is empty, running first-boot zcf init..." >&2
+    HOME=/root zcf init --skip-prompt --config-action new --all-lang zh-CN --ai-output-lang zh-CN --code-type claude-code --api-type skip --api-model "${CLAUDE_PRIMARY_MODEL:-claude-sonnet-4-6}" --api-haiku-model "${CLAUDE_HAIKU_MODEL:-claude-haiku-4-5-20251001}" --api-sonnet-model "${CLAUDE_SONNET_MODEL:-claude-sonnet-4-6}" --api-opus-model "${CLAUDE_OPUS_MODEL:-claude-opus-4-6}" --output-styles all --default-output-style nekomata-engineer --workflows all --mcp-services Playwright,serena --install-cometix-line false
+
+    mkdir -p "${CLAUDE_CONFIG_DIR}/commands/zcf" "${CLAUDE_CONFIG_DIR}/agents/zcf"
+    find "${CLAUDE_CONFIG_DIR}/commands/zcf" -maxdepth 1 -type f ! -name 'init-project.md' -delete
+    find "${CLAUDE_CONFIG_DIR}/agents/zcf" -mindepth 1 -maxdepth 1 ! -name 'common' -exec rm -rf {} +
+
+    if [ -f "${CLAUDE_CONFIG_DIR}/settings.json" ]; then
+        node -e "const fs=require('fs');const p=process.env.CLAUDE_CONFIG_DIR+'/settings.json';const j=JSON.parse(fs.readFileSync(p,'utf8'));if(j.permissions&&Array.isArray(j.permissions.allow)){j.permissions.allow=j.permissions.allow.filter(x=>!x.startsWith('mcp__')||x==='mcp__Playwright'||x==='mcp__serena');}fs.writeFileSync(p,JSON.stringify(j,null,2)+'\n');"
+    fi
 fi
 runtime_override=false
 if [ -n "${ZCF_API_KEY}" ] \
