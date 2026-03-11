@@ -28,7 +28,8 @@ import {
   spawnRunnerSession,
   stopRunnerHttp,
   notifyRunnerSessionStarted,
-  stopRunner
+  stopRunner,
+  checkIfRunnerRunningAndCleanupStaleState
 } from '@/runner/controlClient';
 import { readRunnerState, clearRunnerState, clearRunnerLock } from '@/persistence';
 import { Metadata } from '@/api/types';
@@ -378,6 +379,33 @@ describe.skipIf(!await isServerHealthy())('Runner Integration Tests', { timeout:
     
     // Clean up state file manually since runner couldn't do it
     await clearRunnerState();
+  });
+
+  it('should preserve runner state when process is alive but control port is temporarily unreachable', async () => {
+    const initialState = await readRunnerState();
+    expect(initialState).toBeDefined();
+    expect(isProcessAlive(initialState!.pid)).toBe(true);
+
+    const originalState = readFileSync(configuration.runnerStateFile, 'utf8');
+    const unreachableState = {
+      ...initialState!,
+      httpPort: 1
+    };
+
+    try {
+      writeFileSync(configuration.runnerStateFile, JSON.stringify(unreachableState, null, 2));
+
+      const result = await checkIfRunnerRunningAndCleanupStaleState();
+      expect(result).toBe(false);
+      expect(existsSync(configuration.runnerStateFile)).toBe(true);
+
+      const persistedState = await readRunnerState();
+      expect(persistedState).toBeDefined();
+      expect(persistedState!.pid).toBe(initialState!.pid);
+      expect(persistedState!.httpPort).toBe(1);
+    } finally {
+      writeFileSync(configuration.runnerStateFile, originalState);
+    }
   });
 
   it('should not remove runner lock when only stale state is cleared', async () => {

@@ -163,12 +163,16 @@ export async function checkIfRunnerRunningAndCleanupStaleState(): Promise<boolea
       return true;
     }
 
-    logger.debug(`[RUNNER RUN] Runner state exists but control port is not healthy (HTTP ${response.status}), keeping lock and cleaning up stale state only`);
+    logger.debug(`[RUNNER RUN] Runner state exists but control port is not healthy (HTTP ${response.status}), treating as degraded but not removing state`);
   } catch (error) {
-    logger.debug('[RUNNER RUN] Runner state exists but control port is unreachable, keeping lock and cleaning up stale state only', error);
+    logger.debug('[RUNNER RUN] Runner state exists but control port is unreachable, treating as degraded but not removing state', error);
   }
 
-  await cleanupRunnerState();
+  // Control port failure does not mean the runner is dead or state is stale.
+  // The runner process is still alive (PID check passed), so we should not remove state.
+  // Removing state here would cause `zs runner start/stop/status` to incorrectly report
+  // "not running" until the next heartbeat rewrites the state file.
+  // Return false to indicate control port is not reachable, but preserve state for accuracy.
   return false;
 }
 
