@@ -410,6 +410,38 @@ describe.skipIf(!await isServerHealthy())('Runner Integration Tests', { timeout:
     }
   });
 
+  it('should treat same-PID unreachable runner state as stale metadata', async () => {
+    const originalState = readFileSync(configuration.runnerStateFile, 'utf8');
+
+    writeFileSync(configuration.runnerLockFile, String(process.pid), 'utf8');
+    expect(existsSync(configuration.runnerLockFile)).toBe(true);
+
+    const samePidState = {
+      pid: process.pid,
+      httpPort: 1,
+      startTime: new Date().toISOString(),
+      startedWithCliVersion: 'test-version'
+    };
+
+    try {
+      writeFileSync(configuration.runnerStateFile, JSON.stringify(samePidState, null, 2));
+
+      const availability = await getRunnerAvailability();
+      expect(availability.status).toBe('stale');
+      expect(availability.state).toBeDefined();
+      expect(availability.state!.pid).toBe(process.pid);
+      expect(existsSync(configuration.runnerStateFile)).toBe(false);
+      expect(existsSync(configuration.runnerLockFile)).toBe(false);
+    } finally {
+      if (existsSync(configuration.runnerLockFile)) {
+        unlinkSync(configuration.runnerLockFile);
+      }
+      if (!existsSync(configuration.runnerStateFile)) {
+        writeFileSync(configuration.runnerStateFile, originalState);
+      }
+    }
+  });
+
   it('should not remove runner lock when only stale state is cleared', async () => {
     writeFileSync(configuration.runnerLockFile, String(runnerPid), 'utf8');
     expect(existsSync(configuration.runnerLockFile)).toBe(true);

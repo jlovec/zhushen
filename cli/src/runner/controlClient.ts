@@ -157,6 +157,12 @@ export async function getRunnerAvailability(): Promise<RunnerAvailability> {
     return { status: 'stale', state };
   }
 
+  if (state.pid === process.pid) {
+    logger.debug('[RUNNER RUN] Runner state points to current PID before control server is ready, cleaning stale metadata');
+    await cleanupRunnerState(true);
+    return { status: 'stale', state };
+  }
+
   // PID reuse is common in containers (especially PID 1). Verify the control port is
   // actually responding before treating the persisted runner state as live.
   try {
