@@ -263,12 +263,12 @@ export async function cleanupRunnerState(removeLock: boolean = false): Promise<v
   }
 }
 
-export async function stopRunner() {
+export async function stopRunner(): Promise<boolean> {
   try {
     const state = await readRunnerState();
     if (!state) {
       logger.debug('No runner state found');
-      return;
+      return true;
     }
 
     logger.debug(`Stopping runner with PID ${state.pid}`);
@@ -280,7 +280,7 @@ export async function stopRunner() {
       // Wait for runner to die
       await waitForProcessDeath(state.pid, 2000);
       logger.debug('Runner stopped gracefully via HTTP');
-      return;
+      return true;
     } catch (error) {
       logger.debug('HTTP stop failed, will force kill', error);
     }
@@ -289,13 +289,17 @@ export async function stopRunner() {
     const killed = await killProcess(state.pid, true);
     if (killed) {
       logger.debug('Force killed runner');
-    } else {
-      logger.debug('Runner already dead or could not be killed');
+      return true;
     }
+
+    logger.debug('Runner already dead or could not be killed');
+    return !isProcessAlive(state.pid);
   } catch (error) {
     logger.debug('Error stopping runner', error);
+    return false;
   }
 }
+
 
 async function waitForProcessDeath(pid: number, timeout: number): Promise<void> {
   const start = Date.now();

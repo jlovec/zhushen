@@ -57,6 +57,7 @@ Bun workspaces; `shared` 被 cli、hub、web 共同使用。
 - 路径别名 `@/*` 映射到每个包的 `./src/*`
 - 优先使用 4 空格缩进
 - 使用 Zod 进行运行时验证 (schema 在 `shared/src/schemas.ts`)
+- 只编写必要的测试
 
 ## 常用命令 (仓库根目录)
 

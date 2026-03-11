@@ -60,6 +60,12 @@ export default {
   'session.git.loading': 'Git 加载中…',
   'session.git.detached': '游离头指针',
 
+  // Session view tabs
+  'session.view.label': '会话视图',
+  'session.view.chat': '聊天',
+  'session.view.terminal': '终端',
+  'session.view.files': '文件',
+
   // Session actions
   'session.action.rename': '重命名',
   'session.action.archive': '归档',
@@ -126,6 +132,32 @@ export default {
 
   // Machine
   'machine.unknown': '未知平台',
+
+  // Files page
+  'session.files.searchPlaceholder': '搜索文件…',
+  'session.files.refresh': '刷新',
+  'session.files.viewLabel': '文件视图',
+  'session.files.changes': '变更',
+  'session.files.directories': '目录',
+  'session.files.stagedChanges': '已暂存的变更 ({n})',
+  'session.files.unstagedChanges': '未暂存的变更 ({n})',
+  'session.files.emptySearch': '未找到匹配的文件',
+  'session.files.emptyProject': '项目中没有文件',
+  'session.files.gitUnavailable': 'Git 不可用',
+  'session.files.noChanges': '没有变更',
+  'session.files.loadingGit': '加载 Git 状态…',
+
+  // File page
+  'file.defaultName': '文件',
+  'file.unknownPath': '未知路径',
+  'file.missingPath': '未提供文件路径',
+  'file.copyPath': '复制路径',
+  'file.copyContent': '复制文件内容',
+  'file.diffTab': 'Diff',
+  'file.fileTab': '文件',
+  'file.diffUnavailable': 'Diff 不可用: {error}',
+  'file.empty': '文件为空',
+  'file.noChanges': '没有变更可显示',
 
   // Chat
   'chat.placeholder': '输入消息…',
