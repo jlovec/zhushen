@@ -99,6 +99,10 @@ jobs:
             ${{ github.event.pull_request.base.ref }} \
             +refs/pull/${{ github.event.pull_request.number }}/head
 
+      - name: Prepare Codex home
+        if: steps.check_bot.outputs.has_review_for_current_head != 'true'
+        run: mkdir -p "${{ runner.temp }}/codex-home"
+
       - name: Run Codex for PR Review
         id: run_codex
         if: steps.check_bot.outputs.has_review_for_current_head != 'true'
@@ -113,6 +117,7 @@ jobs:
         with:
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}
           responses-api-endpoint: ${{ secrets.OPENAI_BASE_URL }}
+          codex-home: ${{ runner.temp }}/codex-home
           model: ${{ vars.OPENAI_MODEL || 'gpt-5.2-codex' }}
           effort: ${{ vars.OPENAI_EFFORT || 'high' }}
           sandbox: danger-full-access
