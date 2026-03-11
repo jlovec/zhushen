@@ -57,8 +57,14 @@ export default {
   'session.git.staged': '{n} staged',
   'session.git.unstaged': '{n} unstaged',
   'session.git.unavailable': 'Git unavailable',
-  'session.git.loading': 'Git loading\u2026',
+  'session.git.loading': 'Git loading…',
   'session.git.detached': 'detached',
+
+  // Session view tabs
+  'session.view.label': 'Session views',
+  'session.view.chat': 'Chat',
+  'session.view.terminal': 'Terminal',
+  'session.view.files': 'Files',
 
   // Session actions
   'session.action.rename': 'Rename',
@@ -124,6 +130,32 @@ export default {
 
   // Machine
   'machine.unknown': 'Unknown platform',
+
+  // Files page
+  'session.files.searchPlaceholder': 'Search files…',
+  'session.files.refresh': 'Refresh',
+  'session.files.viewLabel': 'File views',
+  'session.files.changes': 'Changes',
+  'session.files.directories': 'Directories',
+  'session.files.stagedChanges': 'Staged changes ({n})',
+  'session.files.unstagedChanges': 'Unstaged changes ({n})',
+  'session.files.emptySearch': 'No matching files found',
+  'session.files.emptyProject': 'No files in project',
+  'session.files.gitUnavailable': 'Git unavailable',
+  'session.files.noChanges': 'No changes',
+  'session.files.loadingGit': 'Loading Git status…',
+
+  // File page
+  'file.defaultName': 'File',
+  'file.unknownPath': 'Unknown path',
+  'file.missingPath': 'No file path provided.',
+  'file.copyPath': 'Copy path',
+  'file.copyContent': 'Copy file content',
+  'file.diffTab': 'Diff',
+  'file.fileTab': 'File',
+  'file.diffUnavailable': 'Diff unavailable: {error}',
+  'file.empty': 'File is empty.',
+  'file.noChanges': 'No changes to display.',
 
   // Chat
   'chat.placeholder': 'Type a message…',

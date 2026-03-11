@@ -1,4 +1,4 @@
-import { useCallback } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import {
     Navigate,
@@ -13,12 +13,14 @@ import {
 } from '@tanstack/react-router'
 import { App } from '@/App'
 import { SessionChat } from '@/components/SessionChat'
+import { SessionHeader } from '@/components/SessionHeader'
 import { SessionList } from '@/components/SessionList'
 import { NewSession } from '@/components/NewSession'
 import { LoadingState } from '@/components/LoadingState'
 import { useAppContext } from '@/lib/app-context'
 import { useAppGoBack } from '@/hooks/useAppGoBack'
 import { useMessages } from '@/hooks/queries/useMessages'
+import { useGitStatusFiles } from '@/hooks/queries/useGitStatusFiles'
 import { useMachines } from '@/hooks/queries/useMachines'
 import { useSession } from '@/hooks/queries/useSession'
 import { useSessions } from '@/hooks/queries/useSessions'
@@ -179,7 +181,6 @@ function SessionsIndexPage() {
 function SessionPage() {
     const { api } = useAppContext()
     const { t } = useTranslation()
-    const goBack = useAppGoBack()
     const navigate = useNavigate()
     const queryClient = useQueryClient()
     const { addToast } = useToast()
@@ -310,7 +311,6 @@ function SessionPage() {
             isSending={isSending}
             pendingCount={pendingCount}
             messagesVersion={messagesVersion}
-            onBack={goBack}
             onRefresh={refreshSelectedSession}
             onLoadMore={loadMoreMessages}
             onSend={sendMessage}
@@ -324,13 +324,88 @@ function SessionPage() {
     )
 }
 
-function SessionDetailRoute() {
+export function SessionDetailRoute() {
+    const { api } = useAppContext()
+    const navigate = useNavigate()
     const pathname = useLocation({ select: location => location.pathname })
+    const goBack = useAppGoBack()
     const { sessionId } = useParams({ from: '/sessions/$sessionId' })
-    const basePath = `/sessions/${sessionId}`
-    const isChat = pathname === basePath || pathname === `${basePath}/`
+    const { session } = useSession(api, sessionId)
 
-    return isChat ? <SessionPage /> : <Outlet />
+    const basePath = `/sessions/${sessionId}`
+    const currentView = pathname === basePath || pathname === `${basePath}/`
+        ? 'chat'
+        : pathname.startsWith(`${basePath}/terminal`)
+            ? 'terminal'
+            : 'files'
+
+    const hasPath = Boolean(session?.metadata?.path)
+    const {
+        status: gitStatus,
+        error: gitError,
+        isLoading: gitLoading,
+        refetch: refetchGitStatus,
+    } = useGitStatusFiles(hasPath ? api : null, hasPath ? sessionId : null)
+    const lastGitStatusRef = useRef<typeof gitStatus>(null)
+
+    useEffect(() => {
+        lastGitStatusRef.current = null
+    }, [sessionId])
+
+    useEffect(() => {
+        if (!hasPath || !session?.active) {
+            return
+        }
+        void refetchGitStatus()
+    }, [hasPath, session?.active, sessionId, refetchGitStatus])
+
+    if (gitStatus) {
+        lastGitStatusRef.current = gitStatus
+    }
+    const gitStatusForHeader = gitStatus ?? lastGitStatusRef.current
+
+    const handleSelectView = useCallback((view: 'chat' | 'terminal' | 'files') => {
+        if (view === 'chat') {
+            navigate({ to: '/sessions/$sessionId', params: { sessionId } })
+            return
+        }
+        if (view === 'terminal') {
+            navigate({ to: '/sessions/$sessionId/terminal', params: { sessionId } })
+            return
+        }
+        navigate({ to: '/sessions/$sessionId/files', params: { sessionId } })
+    }, [navigate, sessionId])
+
+    const handleSessionDeleted = useCallback(() => {
+        navigate({ to: '/sessions' })
+    }, [navigate])
+
+    if (!session) {
+        return (
+            <div className="flex-1 flex items-center justify-center p-4">
+                <LoadingState label="Loading session…" className="text-sm" />
+            </div>
+        )
+    }
+
+    return (
+        <div className="flex h-full min-h-0 flex-col bg-[var(--app-bg)]">
+            <SessionHeader
+                session={session}
+                onBack={goBack}
+                api={api}
+                onSessionDeleted={handleSessionDeleted}
+                gitSummary={gitStatusForHeader}
+                gitLoading={gitLoading && !gitStatusForHeader}
+                gitError={Boolean(gitError) && !gitStatusForHeader}
+                currentView={currentView}
+                onSelectView={handleSelectView}
+            />
+            <div className="min-h-0 flex-1 overflow-hidden">
+                {currentView === 'chat' ? <SessionPage /> : <Outlet />}
+            </div>
+        </div>
+    )
 }
 
 function NewSessionPage() {

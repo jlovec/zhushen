@@ -1,41 +1,7 @@
 import React from 'react'
 import { describe, expect, it, vi } from 'vitest'
-import { render } from '@testing-library/react'
-import type { GitStatusFiles } from '@/types/api'
+import { render, screen } from '@testing-library/react'
 import { SessionChat } from './SessionChat'
-
-const refetchSpy = vi.fn()
-const gitStateBySessionId = new Map<string, { status: GitStatusFiles | null; error: string | null; isLoading: boolean }>()
-let lastGitSummary: GitStatusFiles | null = null
-let lastGitBranch: string | null = null
-let lastGitError = false
-
-vi.mock('@/hooks/queries/useGitStatusFiles', () => ({
-    useGitStatusFiles: (_api: unknown, sessionId: string | null) => {
-        const state = gitStateBySessionId.get(sessionId ?? 'none') ?? {
-            status: null,
-            error: null,
-            isLoading: false,
-        }
-        return {
-            ...state,
-            refetch: refetchSpy,
-        }
-    }
-}))
-
-vi.mock('@tanstack/react-router', () => ({
-    useNavigate: () => vi.fn(),
-}))
-
-vi.mock('@/components/SessionHeader', () => ({
-    SessionHeader: (props: { gitSummary?: GitStatusFiles | null; gitLoading?: boolean; gitError?: boolean }) => {
-        lastGitSummary = props.gitSummary ?? null
-        lastGitBranch = props.gitSummary?.branch ?? null
-        lastGitError = props.gitError ?? false
-        return <div data-testid="session-header" />
-    }
-}))
 
 vi.mock('@/components/TeamPanel', () => ({
     TeamPanel: () => null,
@@ -103,7 +69,6 @@ const baseProps = {
     isSending: false,
     pendingCount: 0,
     messagesVersion: 0,
-    onBack: vi.fn(),
     onRefresh: vi.fn(),
     onLoadMore: vi.fn(async () => ({})),
     onSend: vi.fn(),
@@ -111,10 +76,10 @@ const baseProps = {
     onAtBottomChange: vi.fn(),
 }
 
-function buildSession(id: string) {
+function buildSession(active: boolean) {
     return {
-        id,
-        active: true,
+        id: active ? 'active-session' : 'inactive-session',
+        active,
         metadata: { path: '/tmp/project', flavor: 'claude' },
         agentState: {},
         permissionMode: 'ask',
@@ -124,50 +89,26 @@ function buildSession(id: string) {
     } as never
 }
 
-describe('SessionChat git status cache', () => {
-    it('clears cached summary and refetches on session change', () => {
-        refetchSpy.mockClear()
-        gitStateBySessionId.clear()
-        lastGitSummary = null
-        lastGitBranch = null
-        lastGitError = false
-
-        gitStateBySessionId.set('session-a', {
-            status: {
-                branch: 'main',
-                totalStaged: 1,
-                totalUnstaged: 2,
-                stagedFiles: [],
-                unstagedFiles: [],
-            },
-            error: null,
-            isLoading: false,
-        })
-
+describe('SessionChat', () => {
+    it('shows inactive hint only for inactive sessions', () => {
         const { rerender } = render(
             <SessionChat
                 {...baseProps}
-                session={buildSession('session-a')}
+                session={buildSession(false)}
             />
         )
 
-        expect(lastGitBranch).toBe('main')
-
-        gitStateBySessionId.set('session-b', {
-            status: null,
-            error: 'Git status unavailable',
-            isLoading: false,
-        })
+        expect(screen.getByText('Session is inactive. Sending will resume it automatically.')).toBeInTheDocument()
+        expect(screen.getByTestId('happy-thread')).toBeInTheDocument()
+        expect(screen.getByTestId('happy-composer')).toBeInTheDocument()
 
         rerender(
             <SessionChat
                 {...baseProps}
-                session={buildSession('session-b')}
+                session={buildSession(true)}
             />
         )
 
-        expect(lastGitSummary).toBeNull()
-        expect(lastGitError).toBe(true)
-        expect(refetchSpy).toHaveBeenCalledTimes(2)
+        expect(screen.queryByText('Session is inactive. Sending will resume it automatically.')).toBeNull()
     })
 })

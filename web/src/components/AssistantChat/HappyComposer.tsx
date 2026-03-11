@@ -51,7 +51,6 @@ export function HappyComposer(props: {
     onPermissionModeChange?: (mode: PermissionMode) => void
     onModelModeChange?: (mode: ModelMode) => void
     onSwitchToRemote?: () => void
-    onTerminal?: () => void
     sessionId?: string
     autocompletePrefixes?: string[]
     autocompleteSuggestions?: (query: string) => Promise<Suggestion[]>
@@ -73,7 +72,6 @@ export function HappyComposer(props: {
         onPermissionModeChange,
         onModelModeChange,
         onSwitchToRemote,
-        onTerminal,
         sessionId,
         autocompletePrefixes = ['@', '/', '$'],
         autocompleteSuggestions = defaultSuggestionHandler,
@@ -251,7 +249,6 @@ export function HappyComposer(props: {
     const abortDisabled = controlsDisabled || isAborting || !threadIsRunning
     const switchDisabled = controlsDisabled || isSwitching || !controlledByUser
     const showSwitchButton = Boolean(controlledByUser && onSwitchToRemote)
-    const showTerminalButton = Boolean(onTerminal)
 
     useEffect(() => {
         if (!isAborting) return
@@ -603,9 +600,6 @@ export function HappyComposer(props: {
                             controlsDisabled={controlsDisabled}
                             showSettingsButton={showSettingsButton}
                             onSettingsToggle={handleSettingsToggle}
-                            showTerminalButton={showTerminalButton}
-                            terminalDisabled={controlsDisabled}
-                            onTerminal={onTerminal ?? (() => {})}
                             showAbortButton={showAbortButton}
                             abortDisabled={abortDisabled}
                             isAborting={isAborting}

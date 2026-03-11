@@ -1,8 +1,7 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type MutableRefObject } from 'react'
-import { useNavigate } from '@tanstack/react-router'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AssistantRuntimeProvider } from '@assistant-ui/react'
 import type { ApiClient } from '@/api/client'
-import type { AttachmentMetadata, DecryptedMessage, GitStatusFiles, ModelMode, PermissionMode, Session } from '@/types/api'
+import type { AttachmentMetadata, DecryptedMessage, ModelMode, PermissionMode, Session } from '@/types/api'
 import type { ChatBlock, NormalizedMessage } from '@/chat/types'
 import type { Suggestion } from '@/hooks/useActiveSuggestions'
 import { normalizeDecryptedMessage } from '@/chat/normalize'
@@ -12,11 +11,9 @@ import { HappyComposer } from '@/components/AssistantChat/HappyComposer'
 import { HappyThread } from '@/components/AssistantChat/HappyThread'
 import { useHappyRuntime } from '@/lib/assistant-runtime'
 import { createAttachmentAdapter } from '@/lib/attachmentAdapter'
-import { SessionHeader } from '@/components/SessionHeader'
 import { TeamPanel } from '@/components/TeamPanel'
 import { usePlatform } from '@/hooks/usePlatform'
 import { useSessionActions } from '@/hooks/mutations/useSessionActions'
-import { useGitStatusFiles } from '@/hooks/queries/useGitStatusFiles'
 
 type NormalizedCacheEntry = {
     source: DecryptedMessage
@@ -52,16 +49,6 @@ function normalizeMessagesWithCache(
     return normalized
 }
 
-function getGitStatusForHeader(
-    gitStatus: GitStatusFiles | null,
-    lastGitStatusRef: MutableRefObject<GitStatusFiles | null>
-): GitStatusFiles | null {
-    if (gitStatus) {
-        lastGitStatusRef.current = gitStatus
-    }
-    return gitStatus ?? lastGitStatusRef.current
-}
-
 export function SessionChat(props: {
     api: ApiClient
     session: Session
@@ -73,7 +60,6 @@ export function SessionChat(props: {
     isSending: boolean
     pendingCount: number
     messagesVersion: number
-    onBack: () => void
     onRefresh: () => void
     onLoadMore: () => Promise<unknown>
     onSend: (text: string, attachments?: AttachmentMetadata[]) => void
@@ -85,7 +71,6 @@ export function SessionChat(props: {
     isFetchingSlashCommands?: boolean
 }) {
     const { haptic } = usePlatform()
-    const navigate = useNavigate()
     const sessionInactive = !props.session.active
     const normalizedCacheRef = useRef<Map<string, NormalizedCacheEntry>>(new Map())
 
@@ -98,29 +83,6 @@ export function SessionChat(props: {
         agentFlavor
     )
 
-    // Git status for header summary
-    const hasPath = Boolean(props.session.metadata?.path)
-    const {
-        status: gitStatus,
-        error: gitError,
-        isLoading: gitLoading,
-        refetch: refetchGitStatus,
-    } = useGitStatusFiles(hasPath ? props.api : null, hasPath ? props.session.id : null)
-    const lastGitStatusRef = useRef<GitStatusFiles | null>(null)
-
-    useEffect(() => {
-        lastGitStatusRef.current = null
-    }, [props.session.id])
-
-    useEffect(() => {
-        if (!hasPath || !props.session.active) {
-            return
-        }
-        void refetchGitStatus()
-    }, [hasPath, props.session.active, props.session.id, refetchGitStatus])
-
-    const gitStatusForHeader = getGitStatusForHeader(gitStatus, lastGitStatusRef)
-
     // Track session id to clear caches when it changes
     const prevSessionIdRef = useRef<string | null>(null)
 
@@ -130,7 +92,6 @@ export function SessionChat(props: {
     }, [props.session.id])
 
     const normalizedMessages: NormalizedMessage[] = useMemo(() => {
-        // Clear caches immediately when session changes (before useEffect runs)
         if (prevSessionIdRef.current !== null && prevSessionIdRef.current !== props.session.id) {
             normalizedCacheRef.current.clear()
             blocksByIdRef.current.clear()
@@ -153,7 +114,6 @@ export function SessionChat(props: {
         blocksByIdRef.current = reconciled.byId
     }, [reconciled.byId])
 
-    // Permission mode change handler
     const handlePermissionModeChange = useCallback(async (mode: PermissionMode) => {
         try {
             await setPermissionMode(mode)
@@ -165,7 +125,6 @@ export function SessionChat(props: {
         }
     }, [setPermissionMode, props.onRefresh, haptic])
 
-    // Model mode change handler
     const handleModelModeChange = useCallback(async (mode: ModelMode) => {
         try {
             await setModelMode(mode)
@@ -177,31 +136,15 @@ export function SessionChat(props: {
         }
     }, [setModelMode, props.onRefresh, haptic])
 
-    // Abort handler
     const handleAbort = useCallback(async () => {
         await abortSession()
         props.onRefresh()
     }, [abortSession, props.onRefresh])
 
-    // Switch to remote handler
     const handleSwitchToRemote = useCallback(async () => {
         await switchSession()
         props.onRefresh()
     }, [switchSession, props.onRefresh])
-
-    const handleViewFiles = useCallback(() => {
-        navigate({
-            to: '/sessions/$sessionId/files',
-            params: { sessionId: props.session.id }
-        })
-    }, [navigate, props.session.id])
-
-    const handleViewTerminal = useCallback(() => {
-        navigate({
-            to: '/sessions/$sessionId/terminal',
-            params: { sessionId: props.session.id }
-        })
-    }, [navigate, props.session.id])
 
     const handleSend = useCallback((text: string, attachments?: AttachmentMetadata[]) => {
         props.onSend(text, attachments)
@@ -227,20 +170,7 @@ export function SessionChat(props: {
 
     return (
         <div className="flex h-full flex-col">
-            <SessionHeader
-                session={props.session}
-                onBack={props.onBack}
-                onViewFiles={props.session.metadata?.path ? handleViewFiles : undefined}
-                api={props.api}
-                onSessionDeleted={props.onBack}
-                gitSummary={gitStatusForHeader}
-                gitLoading={gitLoading && !gitStatusForHeader}
-                gitError={Boolean(gitError) && !gitStatusForHeader}
-            />
-
-            {props.session.teamState && (
-                <TeamPanel teamState={props.session.teamState} />
-            )}
+            {props.session.teamState ? <TeamPanel teamState={props.session.teamState} /> : null}
 
             {sessionInactive ? (
                 <div className="px-3 pt-3">
@@ -288,7 +218,6 @@ export function SessionChat(props: {
                         onPermissionModeChange={handlePermissionModeChange}
                         onModelModeChange={handleModelModeChange}
                         onSwitchToRemote={handleSwitchToRemote}
-                        onTerminal={props.session.active ? handleViewTerminal : undefined}
                         sessionId={props.session.id}
                         autocompleteSuggestions={props.autocompleteSuggestions}
                         onSlashEntry={props.onSlashEntry}
@@ -296,7 +225,6 @@ export function SessionChat(props: {
                     />
                 </div>
             </AssistantRuntimeProvider>
-
         </div>
     )
 }
