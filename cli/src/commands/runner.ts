@@ -58,30 +58,23 @@ export const runnerCommand: CommandDefinition = {
             })
             child.unref()
 
-            let started = false
-            let degraded = false
+            let lastAvailability = await getRunnerAvailability()
             for (let i = 0; i < 50; i++) {
-                const availability = await getRunnerAvailability()
-                if (availability.status === 'running') {
-                    started = true
-                    break
-                }
-                if (availability.status === 'degraded') {
-                    degraded = true
+                lastAvailability = await getRunnerAvailability()
+                if (lastAvailability.status === 'running') {
+                    console.log('Runner started successfully')
+                    process.exit(0)
                 }
                 await new Promise(resolve => setTimeout(resolve, 100))
             }
 
-            if (started) {
-                console.log('Runner started successfully')
-            } else if (degraded) {
+            if (lastAvailability.status === 'degraded') {
                 console.log('Runner process started but control port is not healthy yet')
                 process.exit(0)
-            } else {
-                console.error('Failed to start runner')
-                process.exit(1)
             }
-            process.exit(0)
+
+            console.error('Failed to start runner')
+            process.exit(1)
         }
 
         if (runnerSubcommand === 'start-sync') {

@@ -92,9 +92,9 @@ if [ -z "${CLAUDE_CONFIG_DIR:-}" ]; then
 fi
 
 case "${CLAUDE_CONFIG_DIR}" in
-    /*) ;;
+    /*|[A-Za-z]:[\\/]*|\\\\*|//*) ;;
     *) fail "CLAUDE_CONFIG_DIR 必须是宿主机绝对路径" ;;
- esac
+esac
 
 if [ ! -d "${CLAUDE_CONFIG_DIR}" ]; then
     fail "CLAUDE_CONFIG_DIR 指向的目录不存在: ${CLAUDE_CONFIG_DIR}"
