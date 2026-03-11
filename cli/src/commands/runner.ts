@@ -12,6 +12,27 @@ import { runDoctorCommand } from '@/ui/doctor'
 import { initializeToken } from '@/ui/tokenInit'
 import type { CommandDefinition } from './types'
 
+/**
+ * Spawn a detached runner process and poll until it is confirmed running.
+ * Returns true if the runner started successfully, false otherwise.
+ */
+async function startRunnerDetached(): Promise<boolean> {
+    const child = spawnHappyCLI(['runner', 'start-sync'], {
+        detached: true,
+        stdio: 'ignore',
+        env: process.env
+    })
+    child.unref()
+
+    for (let i = 0; i < 50; i++) {
+        if (await checkIfRunnerRunningAndCleanupStaleState()) {
+            return true
+        }
+        await new Promise(resolve => setTimeout(resolve, 100))
+    }
+    return false
+}
+
 export const runnerCommand: CommandDefinition = {
     name: 'runner',
     requiresRuntimeAssets: true,
@@ -51,21 +72,7 @@ export const runnerCommand: CommandDefinition = {
         }
 
         if (runnerSubcommand === 'start') {
-            const child = spawnHappyCLI(['runner', 'start-sync'], {
-                detached: true,
-                stdio: 'ignore',
-                env: process.env
-            })
-            child.unref()
-
-            let started = false
-            for (let i = 0; i < 50; i++) {
-                if (await checkIfRunnerRunningAndCleanupStaleState()) {
-                    started = true
-                    break
-                }
-                await new Promise(resolve => setTimeout(resolve, 100))
-            }
+            const started = await startRunnerDetached()
 
             if (started) {
                 console.log('Runner started successfully')
@@ -84,6 +91,25 @@ export const runnerCommand: CommandDefinition = {
 
         if (runnerSubcommand === 'stop') {
             await stopRunner()
+            process.exit(0)
+        }
+
+        if (runnerSubcommand === 'restart') {
+            // Stop the runner first (tolerates runner not running)
+            await stopRunner()
+
+            // Start a fresh runner
+            const started = await startRunnerDetached()
+
+            if (started) {
+                console.log('Runner restarted successfully')
+            } else {
+                console.error('Failed to start runner')
+                process.exit(1)
+            }
+
+            // Show full status after restart
+            await runDoctorCommand('runner')
             process.exit(0)
         }
 
@@ -108,6 +134,7 @@ ${chalk.bold('zs runner')} - Runner management
 ${chalk.bold('Usage:')}
   zs runner start              Start the runner (detached)
   zs runner stop               Stop the runner (sessions stay alive)
+  zs runner restart            Restart the runner (stop + start + show status)
   zs runner status             Show runner status
   zs runner list               List active sessions
 

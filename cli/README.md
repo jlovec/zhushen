@@ -46,6 +46,7 @@
 ### Runner 管理
 
 - `zs runner start` - 以 detached 进程启动 runner。
+- `zs runner restart` - 先停止再重新启动 runner，并立即输出完整状态信息。
 - `zs runner stop` - 优雅停止 runner。
 - `zs runner status` - 显示 runner 诊断信息。
 - `zs runner list` - 列出 runner 管理的活跃会话。

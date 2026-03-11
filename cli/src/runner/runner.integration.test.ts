@@ -501,8 +501,60 @@ describe.skipIf(!await isServerHealthy())('Runner Integration Tests', { timeout:
     }
   });
 
+  it('should restart runner when it is already running', async () => {
+    // Runner is already running from beforeEach
+    const initialState = await readRunnerState();
+    expect(initialState).toBeDefined();
+    const initialPid = initialState!.pid;
+
+    // Use the actual restart subcommand (stop + start + show status)
+    void spawnHappyCLI(['runner', 'restart'], {
+      stdio: 'ignore'
+    });
+
+    // Wait for new runner to come up with a different PID
+    await waitFor(async () => {
+      const state = await readRunnerState();
+      return state !== null && state.pid !== initialPid;
+    }, 15_000, 250);
+
+    const newState = await readRunnerState();
+    expect(newState).toBeDefined();
+    expect(newState!.pid).not.toBe(initialPid);
+    expect(isProcessAlive(newState!.pid)).toBe(true);
+
+    // Update runnerPid for afterEach cleanup
+    runnerPid = newState!.pid;
+  });
+
+  it('should restart runner when it is not running', async () => {
+    // Stop the runner first so no runner is running
+    await stopRunner();
+
+    // Wait for runner to die
+    await waitFor(async () => !isProcessAlive(runnerPid), 3000);
+
+    // Use the actual restart subcommand - should tolerate no runner running
+    void spawnHappyCLI(['runner', 'restart'], {
+      stdio: 'ignore'
+    });
+
+    // Wait for new runner to come up
+    await waitFor(async () => {
+      const state = await readRunnerState();
+      return state !== null;
+    }, 15_000, 250);
+
+    const newState = await readRunnerState();
+    expect(newState).toBeDefined();
+    expect(isProcessAlive(newState!.pid)).toBe(true);
+
+    // Update runnerPid for afterEach cleanup
+    runnerPid = newState!.pid;
+  });
+
   // TODO: Add a test to see if a corrupted file will work
-  
+
   // TODO: Test npm uninstall scenario - runner should gracefully handle when zs is uninstalled
   // Current behavior: runner tries to spawn new runner on version mismatch but entrypoint is gone
   // Expected: runner should detect missing entrypoint and either exit cleanly or at minimum not respawn infinitely

@@ -320,10 +320,17 @@ export NODE_TLS_REJECT_UNAUTHORIZED=0
 
 ```bash
 zs runner start
+zs runner restart
 zs runner status
 zs runner logs
 zs runner stop
 ```
+
+其中：
+
+- `zs runner start` 用于首次启动后台 runner
+- `zs runner restart` 用于执行一次“先 stop 再 start”的重启，并在完成后直接展示完整状态
+- `zs runner status` 用于查看当前 runner 诊断信息
 
 Runner 运行后：
 
