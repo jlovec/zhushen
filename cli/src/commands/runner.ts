@@ -2,6 +2,7 @@ import chalk from 'chalk'
 import { startRunner } from '@/runner/run'
 import {
     checkIfRunnerRunningAndCleanupStaleState,
+    isRunnerRunningCurrentlyInstalledHappyVersion,
     listRunnerSessions,
     stopRunner,
     stopRunnerSession
@@ -10,7 +11,40 @@ import { getLatestRunnerLog } from '@/ui/logger'
 import { spawnHappyCLI } from '@/utils/spawnHappyCLI'
 import { runDoctorCommand } from '@/ui/doctor'
 import { initializeToken } from '@/ui/tokenInit'
+import { readRunnerState } from '@/persistence'
+import { isProcessAlive } from '@/utils/process'
 import type { CommandDefinition } from './types'
+
+/**
+ * Spawn a detached runner process and poll until it is confirmed running.
+ * When previousPid is provided, waits until a different runner PID has taken over.
+ */
+async function startRunnerDetached(previousPid?: number): Promise<boolean> {
+    const child = spawnHappyCLI(['runner', 'start-sync'], {
+        detached: true,
+        stdio: 'ignore',
+        env: process.env
+    })
+    child.unref()
+
+    for (let i = 0; i < 50; i++) {
+        const runningCurrentVersion = await isRunnerRunningCurrentlyInstalledHappyVersion()
+        if (runningCurrentVersion) {
+            if (previousPid === undefined) {
+                return true
+            }
+
+            const nextState = await readRunnerState()
+            if (nextState && nextState.pid !== previousPid) {
+                return true
+            }
+        } else {
+            await checkIfRunnerRunningAndCleanupStaleState()
+        }
+        await new Promise(resolve => setTimeout(resolve, 100))
+    }
+    return false
+}
 
 export const runnerCommand: CommandDefinition = {
     name: 'runner',
@@ -51,21 +85,7 @@ export const runnerCommand: CommandDefinition = {
         }
 
         if (runnerSubcommand === 'start') {
-            const child = spawnHappyCLI(['runner', 'start-sync'], {
-                detached: true,
-                stdio: 'ignore',
-                env: process.env
-            })
-            child.unref()
-
-            let started = false
-            for (let i = 0; i < 50; i++) {
-                if (await checkIfRunnerRunningAndCleanupStaleState()) {
-                    started = true
-                    break
-                }
-                await new Promise(resolve => setTimeout(resolve, 100))
-            }
+            const started = await startRunnerDetached()
 
             if (started) {
                 console.log('Runner started successfully')
@@ -84,6 +104,30 @@ export const runnerCommand: CommandDefinition = {
 
         if (runnerSubcommand === 'stop') {
             await stopRunner()
+            process.exit(0)
+        }
+
+        if (runnerSubcommand === 'restart') {
+            const previousPid = (await readRunnerState())?.pid
+            const stopped = await stopRunner()
+
+            if (!stopped || (previousPid !== undefined && isProcessAlive(previousPid))) {
+                console.error('Failed to stop existing runner')
+                process.exit(1)
+            }
+
+            // Start a fresh runner and ensure it is not the old process
+            const started = await startRunnerDetached(previousPid)
+
+            if (started) {
+                console.log('Runner restarted successfully')
+            } else {
+                console.error('Failed to start runner')
+                process.exit(1)
+            }
+
+            // Show full status after restart
+            await runDoctorCommand('runner')
             process.exit(0)
         }
 
@@ -108,6 +152,7 @@ ${chalk.bold('zs runner')} - Runner management
 ${chalk.bold('Usage:')}
   zs runner start              Start the runner (detached)
   zs runner stop               Stop the runner (sessions stay alive)
+  zs runner restart            Restart the runner (stop + start + show status)
   zs runner status             Show runner status
   zs runner list               List active sessions
 

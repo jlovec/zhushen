@@ -267,8 +267,21 @@ Reference executable contract:
 
 ---
 
-Create detailed flow docs when:
-- Feature spans 3+ layers
-- Multiple teams are involved
-- Data format is complex
-- Feature has caused bugs before
+
+## Runner Spawn Context Checklist (Launcher ↔ Runtime ↔ Session Metadata)
+
+When a CLI/runner feature spawns real local processes:
+- [ ] Did you distinguish runtime execution cwd from the user-requested business working directory?
+- [ ] If the runtime needs project-root/module-resolution context, is that fixed structurally instead of inferred from business cwd?
+- [ ] If business cwd must survive process spawn, is it passed explicitly (env/config/arg) rather than hidden in runtime launch cwd?
+- [ ] Did you verify all entrypoints that read `process.cwd()` or equivalent startup context?
+- [ ] Did you check both internal contracts and transport contracts (e.g. internal union type vs HTTP response shape) before rewriting tests?
+- [ ] Is there an integration test that proves runner-spawned sessions and terminal-started sessions are both tracked correctly?
+- [ ] Did you evaluate host impact separately from state-directory isolation?
+
+Typical failure pattern:
+- A spawn helper reuses requested business cwd as runtime cwd.
+- Runtime starts from the wrong directory, so aliases/assets fail to resolve.
+- Debugging then drifts into test assertions, even though the real bug is a launcher/runtime contract violation.
+
+---

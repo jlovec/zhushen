@@ -73,6 +73,7 @@
 1. 在电脑运行 `zs runner start`
 2. 机器会出现在 Web 应用的 “Machines” 列表
 3. 点击即可从任意地点拉起新会话
+4. 若需要重启后台服务，可执行 `zs runner restart`，它会自动先 stop 再 start，并输出完整状态
 
 ### 如何查看变更文件？
 
@@ -131,6 +132,9 @@
 ```bash
 # 查看状态
 zs runner status
+
+# 尝试重启 runner（会先 stop 再 start，并输出完整状态）
+zs runner restart
 
 # 清理陈旧锁文件
 rm ~/.zhushen/runner.state.json.lock
