@@ -379,11 +379,21 @@ python3 ./.trellis/scripts/task.py list-archive    # List archived tasks
 ### Commit Convention
 
 ```bash
-git commit -m "type(scope): description"
+git commit -m "type(scope): 中文描述"
 ```
 
 **Type**: feat, fix, docs, refactor, test, chore
 **Scope**: Module name (e.g., auth, api, ui)
+**Description**: Use Chinese description, e.g. `feat(auth): 新增短信登录流程`
+
+### Template-only Policy (No Automatic Enforcement)
+
+- This repository currently uses template-level convention injection only.
+- We do **not** enable automatic blocking checks for language style in hooks or CI.
+- Team members should consciously follow:
+  - Trellis docs: Chinese (Simplified)
+  - Commit message: `type(scope): 中文描述`
+- Migration strategy: non-retroactive. Existing historical docs/commits are not rewritten; rules apply to newly created or updated content.
 
 ### Common Commands
 

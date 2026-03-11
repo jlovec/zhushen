@@ -70,4 +70,4 @@ Before merging test-related changes:
 
 ---
 
-**Language**: Documentation in this folder should be written in **English**.
+**Language**: Documentation in this folder should be written in **Chinese (Simplified)**.
