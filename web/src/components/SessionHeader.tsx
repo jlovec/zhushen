@@ -7,28 +7,9 @@ import { MoreVerticalIcon } from '@/components/SessionIcons'
 import { SessionActionMenu } from '@/components/SessionActionMenu'
 import { RenameSessionDialog } from '@/components/RenameSessionDialog'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
+import { cn } from '@/lib/utils'
 import { getSessionTitle } from '@/lib/sessionTitle'
 import { useTranslation } from '@/lib/use-translation'
-
-function FilesIcon(props: { className?: string }) {
-    return (
-        <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="18"
-            height="18"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className={props.className}
-        >
-            <path d="M14 2H7a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" />
-            <path d="M14 2v6h6" />
-        </svg>
-    )
-}
 
 function GitBranchIcon(props: { className?: string }) {
     return (
@@ -52,7 +33,40 @@ function GitBranchIcon(props: { className?: string }) {
     )
 }
 
+function BackIcon(props: { className?: string }) {
+    return (
+        <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className={props.className}
+        >
+            <polyline points="15 18 9 12 15 6" />
+        </svg>
+    )
+}
+
 type GitSummary = Pick<GitStatusFiles, 'branch' | 'totalStaged' | 'totalUnstaged'>
+
+type SessionHeaderView = 'chat' | 'terminal' | 'files'
+
+type SessionHeaderProps = {
+    session: Session
+    onBack: () => void
+    api: ApiClient | null
+    onSessionDeleted?: () => void
+    gitSummary?: GitSummary | null
+    gitLoading?: boolean
+    gitError?: boolean
+    currentView: SessionHeaderView
+    onSelectView: (view: SessionHeaderView) => void
+}
 
 function GitStatusBar(props: { gitSummary: GitSummary | null; isLoading: boolean; hasError: boolean }) {
     const { t } = useTranslation()
@@ -90,18 +104,18 @@ function GitStatusBar(props: { gitSummary: GitSummary | null; isLoading: boolean
     )
 }
 
-export function SessionHeader(props: {
-    session: Session
-    onBack: () => void
-    onViewFiles?: () => void
-    api: ApiClient | null
-    onSessionDeleted?: () => void
-    gitSummary?: GitSummary | null
-    gitLoading?: boolean
-    gitError?: boolean
-}) {
+export function SessionHeader({
+    session,
+    onBack,
+    api,
+    onSessionDeleted,
+    gitSummary,
+    gitLoading = false,
+    gitError = false,
+    currentView,
+    onSelectView,
+}: SessionHeaderProps) {
     const { t } = useTranslation()
-    const { session, api, onSessionDeleted } = props
     const title = useMemo(() => getSessionTitle(session), [session])
     const worktreeBranch = session.metadata?.worktree?.branch
     const showGitStatus = Boolean(session.metadata?.path)
@@ -133,36 +147,27 @@ export function SessionHeader(props: {
         setMenuOpen((open) => !open)
     }
 
+    const views: Array<{ key: SessionHeaderView; label: string }> = [
+        { key: 'chat', label: t('session.view.chat') },
+        { key: 'terminal', label: t('session.view.terminal') },
+        { key: 'files', label: t('session.view.files') },
+    ]
+
     return (
         <>
-            <div className="bg-[var(--app-bg)] pt-[env(safe-area-inset-top)]">
-                <div className="mx-auto w-full max-w-content flex items-center gap-2 p-3">
-                    {/* Back button */}
+            <div className="border-b border-[var(--app-border)] bg-[var(--app-bg)] pt-[env(safe-area-inset-top)]">
+                <div className="mx-auto flex w-full max-w-content items-center gap-2 p-3">
                     <button
                         type="button"
-                        onClick={props.onBack}
+                        onClick={onBack}
                         className="flex h-8 w-8 items-center justify-center rounded-full text-[var(--app-hint)] transition-colors hover:bg-[var(--app-secondary-bg)] hover:text-[var(--app-fg)]"
+                        aria-label={t('button.close')}
                     >
-                        <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            width="20"
-                            height="20"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                        >
-                            <polyline points="15 18 9 12 15 6" />
-                        </svg>
+                        <BackIcon />
                     </button>
 
-                    {/* Session info - two lines: title and path */}
                     <div className="min-w-0 flex-1">
-                        <div className="truncate font-semibold">
-                            {title}
-                        </div>
+                        <div className="truncate font-semibold">{title}</div>
                         <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-[var(--app-hint)]">
                             <span className="inline-flex items-center gap-1">
                                 <span aria-hidden="true">❖</span>
@@ -171,9 +176,7 @@ export function SessionHeader(props: {
                             <span>
                                 {t('session.item.modelMode')}: {session.modelMode || 'default'}
                             </span>
-                            {worktreeBranch ? (
-                                <span>{t('session.item.worktree')}: {worktreeBranch}</span>
-                            ) : null}
+                            {worktreeBranch ? <span>{t('session.item.worktree')}: {worktreeBranch}</span> : null}
                             <HostBadge
                                 host={session.metadata?.host}
                                 machineId={session.metadata?.machineId}
@@ -182,23 +185,12 @@ export function SessionHeader(props: {
                         </div>
                         {showGitStatus ? (
                             <GitStatusBar
-                                gitSummary={props.gitSummary ?? null}
-                                isLoading={props.gitLoading ?? false}
-                                hasError={props.gitError ?? false}
+                                gitSummary={gitSummary ?? null}
+                                isLoading={gitLoading}
+                                hasError={gitError}
                             />
                         ) : null}
                     </div>
-
-                    {props.onViewFiles ? (
-                        <button
-                            type="button"
-                            onClick={props.onViewFiles}
-                            className="flex h-8 w-8 items-center justify-center rounded-full text-[var(--app-hint)] transition-colors hover:bg-[var(--app-secondary-bg)] hover:text-[var(--app-fg)]"
-                            title={t('session.title')}
-                        >
-                            <FilesIcon />
-                        </button>
-                    ) : null}
 
                     <button
                         type="button"
@@ -213,6 +205,35 @@ export function SessionHeader(props: {
                     >
                         <MoreVerticalIcon />
                     </button>
+                </div>
+
+                <div className="mx-auto w-full max-w-content" role="tablist" aria-label={t('session.view.label')}>
+                    <div className="grid grid-cols-3">
+                        {views.map((view) => {
+                            const active = currentView === view.key
+                            return (
+                                <button
+                                    key={view.key}
+                                    type="button"
+                                    role="tab"
+                                    aria-selected={active}
+                                    onClick={() => onSelectView(view.key)}
+                                    className={cn(
+                                        'relative py-3 text-center text-sm font-semibold transition-colors hover:bg-[var(--app-subtle-bg)]',
+                                        active ? 'text-[var(--app-fg)]' : 'text-[var(--app-hint)]'
+                                    )}
+                                >
+                                    {view.label}
+                                    <span
+                                        className={cn(
+                                            'absolute bottom-0 left-1/2 h-0.5 w-10 -translate-x-1/2 rounded-full',
+                                            active ? 'bg-[var(--app-link)]' : 'bg-transparent'
+                                        )}
+                                    />
+                                </button>
+                            )
+                        })}
+                    </div>
                 </div>
             </div>
 

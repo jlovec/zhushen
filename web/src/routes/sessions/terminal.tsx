@@ -4,7 +4,6 @@ import { useParams } from '@tanstack/react-router'
 import type { Terminal } from '@xterm/xterm'
 import { useAppContext } from '@/lib/app-context'
 import { safeCopyToClipboard } from '@/lib/clipboard'
-import { useAppGoBack } from '@/hooks/useAppGoBack'
 import { useSession } from '@/hooks/queries/useSession'
 import { useTerminalSocket } from '@/hooks/useTerminalSocket'
 import { useLongPress } from '@/hooks/useLongPress'
@@ -19,40 +18,6 @@ import {
     DialogHeader,
     DialogTitle
 } from '@/components/ui/dialog'
-function BackIcon() {
-    return (
-        <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="20"
-            height="20"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-        >
-            <polyline points="15 18 9 12 15 6" />
-        </svg>
-    )
-}
-
-function ConnectionIndicator(props: { status: 'idle' | 'connecting' | 'connected' | 'error' }) {
-    const isConnected = props.status === 'connected'
-    const isConnecting = props.status === 'connecting'
-    const label = isConnected ? 'Connected' : isConnecting ? 'Connecting' : 'Offline'
-    const colorClass = isConnected
-        ? 'bg-emerald-500'
-        : isConnecting
-          ? 'bg-amber-400 animate-pulse'
-          : 'bg-[var(--app-hint)]'
-
-    return (
-        <div className="flex items-center" aria-label={label} title={label} role="status">
-            <span className={`h-2.5 w-2.5 rounded-full ${colorClass}`} />
-        </div>
-    )
-}
 
 type QuickInput = {
     label: string
@@ -183,7 +148,6 @@ export default function TerminalPage() {
     const { t } = useTranslation()
     const { sessionId } = useParams({ from: '/sessions/$sessionId/terminal' })
     const { api, token, baseUrl } = useAppContext()
-    const goBack = useAppGoBack()
     const { session } = useSession(api, sessionId)
     const terminalId = useMemo(() => {
         if (typeof crypto?.randomUUID === 'function') {
@@ -433,29 +397,10 @@ export default function TerminalPage() {
         )
     }
 
-    const subtitle = session.metadata?.path ?? sessionId
-    const status = terminalState.status
     const errorMessage = terminalState.status === 'error' ? terminalState.error : null
 
     return (
         <div className="flex h-full flex-col">
-            <div className="bg-[var(--app-bg)] pt-[env(safe-area-inset-top)]">
-                <div className="mx-auto w-full max-w-content flex items-center gap-2 p-3 border-b border-[var(--app-border)]">
-                    <button
-                        type="button"
-                        onClick={goBack}
-                        className="flex h-8 w-8 items-center justify-center rounded-full text-[var(--app-hint)] transition-colors hover:bg-[var(--app-secondary-bg)] hover:text-[var(--app-fg)]"
-                    >
-                        <BackIcon />
-                    </button>
-                    <div className="min-w-0 flex-1">
-                        <div className="truncate font-semibold">Terminal</div>
-                        <div className="truncate text-xs text-[var(--app-hint)]">{subtitle}</div>
-                    </div>
-                    <ConnectionIndicator status={status} />
-                </div>
-            </div>
-
             {session.active ? null : (
                 <div className="px-3 pt-3">
                     <div className="mx-auto w-full max-w-content rounded-md bg-[var(--app-subtle-bg)] p-3 text-sm text-[var(--app-hint)]">
@@ -487,7 +432,7 @@ export default function TerminalPage() {
                 </div>
             </div>
 
-            <div className="bg-[var(--app-bg)] border-t border-[var(--app-border)] pb-[env(safe-area-inset-bottom)]">
+            <div className="border-t border-[var(--app-border)] bg-[var(--app-bg)] pb-[env(safe-area-inset-bottom)]">
                 <div className="mx-auto w-full max-w-content px-3">
                     <div className="flex flex-col gap-2 py-2">
                         <button
