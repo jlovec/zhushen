@@ -73,6 +73,14 @@ function resolveShell(): string {
     return '/bin/bash'
 }
 
+function getTerminalSupportIssue(): string | null {
+    if (process.platform === 'win32') {
+        return 'Interactive terminal is not supported on Windows runners yet. Current implementation depends on Bun terminal support, which is unavailable on this platform.'
+    }
+
+    return null
+}
+
 function buildFilteredEnv(): NodeJS.ProcessEnv {
     const env: NodeJS.ProcessEnv = {}
     for (const [key, value] of Object.entries(process.env)) {
@@ -162,6 +170,7 @@ export class TerminalManager {
         const sessionPath = this.getSessionPath() ?? process.cwd()
         const shell = resolveShell()
         const decoder = new TextDecoder()
+        const terminalSupportIssue = getTerminalSupportIssue()
 
         this.logTerminal({
             stage: 'terminal.create',
@@ -171,8 +180,31 @@ export class TerminalManager {
             rows,
             shell,
             sessionPath,
-            platform: process.platform
+            platform: process.platform,
+            terminalSupportIssue
         })
+
+        if (terminalSupportIssue) {
+            logger.warn('[TERMINAL] Terminal unavailable on current platform', {
+                shell,
+                sessionPath,
+                platform: process.platform,
+                terminalId,
+                reason: terminalSupportIssue
+            })
+            this.logTerminal({
+                stage: 'terminal.capability',
+                outcome: 'error',
+                terminalId,
+                cause: 'platform_terminal_unsupported',
+                shell,
+                sessionPath,
+                platform: process.platform,
+                reason: terminalSupportIssue
+            })
+            this.emitError(terminalId, terminalSupportIssue)
+            return
+        }
 
         try {
             const proc = Bun.spawn([shell], {
@@ -277,6 +309,7 @@ export class TerminalManager {
                 shell,
                 sessionPath,
                 platform: process.platform,
+                terminalSupported: terminalSupportIssue === null,
                 error
             })
             this.logTerminal({
@@ -287,11 +320,12 @@ export class TerminalManager {
                 shell,
                 sessionPath,
                 platform: process.platform,
+                terminalSupported: terminalSupportIssue === null,
                 error: error instanceof Error ? error.message : String(error)
             })
             this.emitError(
                 terminalId,
-                `Failed to spawn terminal using shell: ${shell}. Error: ${error instanceof Error ? error.message : String(error)}`
+                `Failed to spawn terminal using shell: ${shell}. Platform: ${process.platform}. Error: ${error instanceof Error ? error.message : String(error)}`
             )
         }
     }
