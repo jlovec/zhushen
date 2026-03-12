@@ -9,6 +9,8 @@ const writeMock = vi.fn()
 const connectMock = vi.fn()
 const disconnectMock = vi.fn()
 const closeMock = vi.fn()
+const terminalWriteSpy = vi.fn()
+const terminalResetSpy = vi.fn()
 
 let hasSelectionMock = false
 let selectionTextMock = ''
@@ -23,6 +25,7 @@ type TerminalSocketState =
 
 let terminalSocketStateMock: TerminalSocketState = { status: 'connected' }
 let onTerminalNotFoundHandler: (() => void) | undefined
+let onOutputHandler: ((data: string) => void) | undefined
 
 vi.mock('@tanstack/react-router', () => ({
     useParams: () => ({ sessionId: 'session-1' })
@@ -60,7 +63,9 @@ vi.mock('@/hooks/useTerminalSocket', () => ({
             resize: vi.fn(),
             close: closeMock,
             disconnect: disconnectMock,
-            onOutput: vi.fn(),
+            onOutput: (handler: (data: string) => void) => {
+                onOutputHandler = handler
+            },
             onExit: vi.fn()
         }
     }
@@ -92,9 +97,9 @@ vi.mock('@/components/Terminal/TerminalView', () => ({
                 },
                 hasSelection: () => hasSelectionMock,
                 getSelection: () => selectionTextMock,
-                write: vi.fn(),
+                write: terminalWriteSpy,
                 focus: vi.fn(),
-                reset: vi.fn(),
+                reset: terminalResetSpy,
             }
             onMount?.(terminal)
         }, [onMount])
@@ -120,6 +125,9 @@ describe('TerminalPage paste behavior', () => {
         keyHandler = null
         terminalSocketStateMock = { status: 'connected' }
         onTerminalNotFoundHandler = undefined
+        onOutputHandler = undefined
+        terminalWriteSpy.mockReset()
+        terminalResetSpy.mockReset()
         localStorage.clear()
         localStorage.setItem('zs-lang', 'en')
     })
@@ -221,6 +229,19 @@ describe('TerminalPage paste behavior', () => {
 
         expect(closeMock).toHaveBeenCalledTimes(1)
         expect(disconnectMock).toHaveBeenCalledTimes(1)
+    })
+
+    it('does not reset terminal when streaming output chunks arrive', () => {
+        renderWithProviders()
+        terminalResetSpy.mockClear()
+        terminalWriteSpy.mockClear()
+
+        onOutputHandler?.('first chunk')
+        onOutputHandler?.('second chunk')
+
+        expect(terminalResetSpy).not.toHaveBeenCalled()
+        expect(terminalWriteSpy).toHaveBeenNthCalledWith(1, 'first chunk')
+        expect(terminalWriteSpy).toHaveBeenNthCalledWith(2, 'second chunk')
     })
 
     it('closes previous terminal when terminal not found triggers recreation', () => {
