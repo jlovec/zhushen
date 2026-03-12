@@ -2,7 +2,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { useEffect } from 'react'
 import { I18nProvider } from '@/lib/i18n-context'
-import TerminalPage from './terminal'
+import { ToastProvider } from '@/lib/toast-context'
+import { TerminalPage } from './terminal'
 
 const writeMock = vi.fn()
 
@@ -61,6 +62,7 @@ type TerminalMountMock = {
     getSelection: () => string
     write: () => void
     focus: () => void
+    reset: () => void
 }
 
 vi.mock('@/components/Terminal/TerminalView', () => ({
@@ -75,6 +77,7 @@ vi.mock('@/components/Terminal/TerminalView', () => ({
                 getSelection: () => selectionTextMock,
                 write: vi.fn(),
                 focus: vi.fn(),
+                reset: vi.fn(),
             }
             onMount?.(terminal)
         }, [onMount])
@@ -85,7 +88,9 @@ vi.mock('@/components/Terminal/TerminalView', () => ({
 function renderWithProviders() {
     return render(
         <I18nProvider>
-            <TerminalPage />
+            <ToastProvider>
+                <TerminalPage />
+            </ToastProvider>
         </I18nProvider>
     )
 }
