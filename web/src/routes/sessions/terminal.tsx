@@ -219,7 +219,7 @@ export function TerminalPage() {
         replayedBufferRef.current = null
     }, [sessionId])
 
-    const replayStoredBuffer = useCallback((terminal: Terminal | null) => {
+    const replayStoredBuffer = useCallback((terminal: Terminal | null, outputBuffer: string) => {
         if (!terminal) {
             return
         }
@@ -227,15 +227,15 @@ export function TerminalPage() {
             return
         }
         terminal.reset()
-        if (terminalStateSnapshot.outputBuffer) {
-            terminal.write(terminalStateSnapshot.outputBuffer)
+        if (outputBuffer) {
+            terminal.write(outputBuffer)
         }
         replayedBufferRef.current = terminalId
-    }, [terminalId, terminalStateSnapshot.outputBuffer])
+    }, [terminalId])
 
     useEffect(() => {
         replayedBufferRef.current = null
-        replayStoredBuffer(terminalRef.current)
+        replayStoredBuffer(terminalRef.current, terminalStateSnapshot.outputBuffer)
     }, [terminalId, replayStoredBuffer])
 
     useEffect(() => {
@@ -264,7 +264,7 @@ export function TerminalPage() {
         }
         const nextState = markTerminalSessionConnected(sessionId)
         setTerminalStateSnapshot(nextState)
-        replayStoredBuffer(terminalRef.current)
+        replayStoredBuffer(terminalRef.current, nextState.outputBuffer)
         if (pendingReconnectToastRef.current) {
             addToast({
                 title: t('terminal.toast.restartedTitle'),
@@ -328,7 +328,7 @@ export function TerminalPage() {
                 const modifierState = modifierStateRef.current
                 dispatchSequence(data, modifierState)
             })
-            replayStoredBuffer(terminal)
+            replayStoredBuffer(terminal, terminalStateSnapshot.outputBuffer)
         },
         [dispatchSequence, handleTerminalCopyShortcut, replayStoredBuffer]
     )
