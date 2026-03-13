@@ -332,6 +332,7 @@ export class TerminalManager {
                 terminalId,
                 cause: 'terminal_not_found'
             })
+            this.emitError(terminalId, 'Terminal not found.')
             return
         }
 

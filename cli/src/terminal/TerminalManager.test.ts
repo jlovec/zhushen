@@ -45,4 +45,31 @@ describe('TerminalManager', () => {
             message: 'Terminal is unavailable in this runtime.'
         })
     })
+
+    it('emits terminal not found error when writing to missing terminal', async () => {
+        const onError = vi.fn()
+        const onReady = vi.fn()
+        const onOutput = vi.fn()
+        const onExit = vi.fn()
+
+        const { TerminalManager } = await import('./TerminalManager')
+
+        const manager = new TerminalManager({
+            sessionId: 'session-1',
+            getSessionPath: () => '/tmp/project',
+            onReady,
+            onOutput,
+            onExit,
+            onError
+        })
+
+        manager.write('missing-terminal', 'echo test')
+
+        expect(onError).toHaveBeenCalledTimes(1)
+        expect(onError).toHaveBeenCalledWith({
+            sessionId: 'session-1',
+            terminalId: 'missing-terminal',
+            message: 'Terminal not found.'
+        })
+    })
 })
