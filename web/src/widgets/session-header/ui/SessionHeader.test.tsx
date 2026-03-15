@@ -71,16 +71,19 @@ function buildSession(hasPath: boolean): Session {
             path: hasPath ? '/tmp/project' : '',
             host: '',
             flavor: 'claude',
-            machineId: null,
-            worktree: null,
-            os: null
+            machineId: undefined,
+            worktree: undefined,
+            os: undefined
         },
+        metadataVersion: 1,
         modelMode: 'default',
-        permissionMode: 'auto',
+        permissionMode: 'default',
         thinking: false,
+        thinkingAt: 0,
         agentState: null,
-        teamState: null
-    }
+        agentStateVersion: 0,
+        teamState: undefined
+    } as Session
 }
 
 describe('SessionHeader', () => {
