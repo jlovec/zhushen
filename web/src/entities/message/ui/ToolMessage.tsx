@@ -45,14 +45,131 @@ function splitTaskChildren(block: ToolCallBlock): { pending: ChatBlock[]; rest: 
     return { pending, rest }
 }
 
+/**
+ * 检测并行 Task 块
+ * 在指定时间窗口内创建的多个 Task 视为并行
+ */
+function detectParallelTasks(blocks: ChatBlock[]): Array<ChatBlock | ChatBlock[]> {
+    const TIME_WINDOW = 5000 // 5秒内创建的视为并行
+    const result: Array<ChatBlock | ChatBlock[]> = []
+    let currentGroup: ToolCallBlock[] = []
+    let lastTimestamp = 0
+
+    for (const block of blocks) {
+        const isTask = block.kind === 'tool-call' && block.tool.name === 'Task'
+
+        if (isTask) {
+            const timeDiff = block.createdAt - lastTimestamp
+
+            if (currentGroup.length === 0 || timeDiff <= TIME_WINDOW) {
+                // 第一个 Task 或在时间窗口内，加入当前组
+                currentGroup.push(block as ToolCallBlock)
+                lastTimestamp = block.createdAt
+            } else {
+                // 超出时间窗口，保存当前组并开始新组
+                if (currentGroup.length > 1) {
+                    result.push([...currentGroup])
+                } else if (currentGroup.length === 1) {
+                    result.push(currentGroup[0])
+                }
+                currentGroup = [block as ToolCallBlock]
+                lastTimestamp = block.createdAt
+            }
+        } else {
+            // 非 Task 块，保存当前组并添加该块
+            if (currentGroup.length > 1) {
+                result.push([...currentGroup])
+            } else if (currentGroup.length === 1) {
+                result.push(currentGroup[0])
+            }
+            currentGroup = []
+            lastTimestamp = 0
+            result.push(block)
+        }
+    }
+
+    // 处理最后一组
+    if (currentGroup.length > 1) {
+        result.push([...currentGroup])
+    } else if (currentGroup.length === 1) {
+        result.push(currentGroup[0])
+    }
+
+    return result
+}
+
+/**
+ * 渲染并行 Task 组（Grid 布局）
+ */
+function ParallelTasksGrid(props: {
+    tasks: ToolCallBlock[]
+}) {
+    const ctx = useHappyChatContext()
+
+    return (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {props.tasks.map((task) => {
+                const taskChildren = splitTaskChildren(task)
+
+                return (
+                    <div key={task.id} className="min-w-0 flex flex-col">
+                        <ToolCard
+                            api={ctx.api}
+                            sessionId={ctx.sessionId}
+                            metadata={ctx.metadata}
+                            disabled={ctx.disabled}
+                            onDone={ctx.onRefresh}
+                            block={task}
+                        />
+                        {task.children.length > 0 ? (
+                            <>
+                                {taskChildren.pending.length > 0 ? (
+                                    <div className="mt-2 pl-3">
+                                        <HappyNestedBlockList blocks={taskChildren.pending} />
+                                    </div>
+                                ) : null}
+                                {taskChildren.rest.length > 0 ? (
+                                    <details className="mt-2">
+                                        <summary className="cursor-pointer text-xs text-[var(--app-hint)]">
+                                            Task details ({taskChildren.rest.length})
+                                        </summary>
+                                        <div className="mt-2 pl-3">
+                                            <HappyNestedBlockList blocks={taskChildren.rest} />
+                                        </div>
+                                    </details>
+                                ) : null}
+                            </>
+                        ) : null}
+                    </div>
+                )
+            })}
+        </div>
+    )
+}
+
 function HappyNestedBlockList(props: {
     blocks: ChatBlock[]
 }) {
     const ctx = useHappyChatContext()
 
+    // 检测并行 Task 并分组
+    const groupedBlocks = detectParallelTasks(props.blocks)
+
     return (
         <div className="flex flex-col gap-3">
-            {props.blocks.map((block) => {
+            {groupedBlocks.map((item, groupIndex) => {
+                // 并行 Task 组（数组）
+                if (Array.isArray(item)) {
+                    return (
+                        <div key={`parallel-group:${groupIndex}`} className="py-1">
+                            <ParallelTasksGrid tasks={item as ToolCallBlock[]} />
+                        </div>
+                    )
+                }
+
+                // 单个块
+                const block = item
+
                 if (block.kind === 'user-text') {
                     const userBubbleClass = 'w-fit max-w-[92%] ml-auto rounded-xl bg-[var(--app-secondary-bg)] px-3 py-2 text-[var(--app-fg)] shadow-sm'
                     const status = block.status
