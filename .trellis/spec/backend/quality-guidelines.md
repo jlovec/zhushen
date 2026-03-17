@@ -150,13 +150,14 @@ bun run build      # 构建生产版本
 
 - 将生产镜像的依赖闭包视为运行时契约，而不是构建优化细节。
 - 除非你已经确认所有运行时传递依赖都已落入最终镜像，否则不要依赖过滤后的生产安装。
-- 如果运行路径会导入 `tar` 这类包，应优先用真实启动命令验证最终镜像，而不是假设 lockfile 完整就足够。
+- **如果运行路径会导入 `tar` 这类包，应优先用真实启动命令验证最终镜像，而不是假设 lockfile 完整就足够。**
 - 对于 `ZCF_API_KEY` / `ZCF_API_URL` 这类成对 env 变量，在修改持久化配置前要先校验语义形态（`key` 不应像 URL，`url` 应能被解析为 URL）。
 - 如果 entrypoint 在配置告警后仍可继续执行，要确保告警足够精确，能说明故障是否可恢复，还是应当终止启动。
 - 要区分 **容器 entrypoint 命令** 与 **守护化 bootstrap 命令**。如果某个命令在发现已有后台进程后可能以 `0` 正常退出，它就不是合法的 Docker PID 1 契约。
 - 如果某个 CLI 子命令会打印 `already running` 之类的信息然后 `process.exit(0)`，就不要直接把它接成长期运行的 Compose 服务命令。
 - 对于带有 `restart: unless-stopped` 的 Compose 服务，要确认主进程设计为保持前台运行；否则一次成功退出也会变成重启循环。
 - 增加可执行校验，不仅检查 `docker compose up`，还要确认服务在初始 bootstrap 后保持 `Up` 并进入 `healthy`。
+- **Bun workspace 在 runtime stage 的依赖闭包：若只复制部分 workspace 源码并在 runtime stage 重新 `bun install`，会导致传递依赖丢失与模块解析失败（例如 `Cannot find module '@isaacs/fs-minipass'`、`EISDIR reading node_modules/cross-spawn`）。推荐做法：在 tooling stage 完成完整依赖安装后，直接复制 `node_modules` 到 runtime stage；若必须在 runtime stage 重新安装，应先复制所有 workspace 源码，再执行 `bun install --frozen-lockfile`，之后再清理不需要的源码目录。**
 - 对于需要发布多架构镜像（如 `linux/amd64,linux/arm64`）的工作流，不要把“本地单架构 build 成功”当成充分证明；必须单独验证最慢的目标架构是否能在 CI 的 builder / QEMU 环境内完成。
 - 当某个镜像独有额外构建阶段（例如前端 `vite build`、静态站点打包、大型资源编译）时，要把它视为发布路径上的独立风险点；不要因为同矩阵里的另一个镜像能完成多架构推送，就默认该镜像也没问题。
 - 如果多架构发布卡在单个镜像，而同工作流中的其它镜像已完成，应优先怀疑该镜像在某个目标架构上的构建阶段，而不是先怀疑 GHCR 登录或 workflow 框架本身。
@@ -1267,6 +1268,91 @@ git rev-parse HEAD
 git ls-remote origin refs/heads/zs-docker
 gh run list --branch zs-docker
 # 需要判断缺失的是 push、PR 元数据刷新，还是 pull_request_target 触发
+```
+
+---
+
+## 场景：Docker Runner 运行时依赖闭包缺失（Bun Workspace Runtime Stage）
+
+### 1. 范围 / 触发条件
+- 触发条件： Docker runner 镜像启动时报 `Cannot find module '@isaacs/fs-minipass'` 或 `EISDIR reading node_modules/cross-spawn`。
+- 为什么需要 code-spec 深度：
+ - Bun workspace 依赖图在多阶段构建中可能被部分源码缺失破坏。
+ - 传递依赖（如 `tar` 的 `@isaacs/fs-minipass`）在 runtime stage 重新 `bun install` 时未正确解析。
+ - `cross-spawn` 的 EISDIR 错误表明 node_modules 结构异常（符号链接或目录状态）。
+
+### 2. 签名
+- Dockerfile runtime stage signature:
+ - `Dockerfile.runner`
+ - `COPY package.json bun.lock ./`
+ - `COPY cli/package.json ./cli/package.json` ... 复制所有 workspace manifest
+ - `RUN bun install --frozen-lockfile`
+ - `COPY cli ./cli` / `COPY shared ./shared` — 但未复制其他 workspace 源码
+- 错误日志 signature:
+ - `error: Cannot find module '@isaacs/fs-minipass' from '/app/cli/node_modules/tar/dist/esm/extract.js'`
+ - `error: EISDIR reading "/app/cli/node_modules/cross-spawn"`
+
+### 3. 契约
+- Workspace 源码完整性契约：
+ - Bun workspace 依赖解析需要所有 workspace 的源码存在，否则依赖图不完整。
+ - 若 runtime stage 只复制部分源码，重新 `bun install` 会产生损坏的依赖树。
+- 依赖闭包契约：
+ - 最终镜像必须包含所有运行时传递依赖的完整 node_modules。
+ - 不能假设 lockfile + 部分源码 + `bun install` 会产生完整依赖闭包。
+
+### 4. 校验与错误矩阵
+- runtime stage 只复制部分 workspace 源码并重新 `bun install` -> 传递依赖丢失（`@isaacs/fs-minipass`）。
+- `cross-spawn` EISDIR -> node_modules 结构异常，可能由 workspace 解析失败导致。
+- 本地完整构建通过但容器运行时模块缺失 -> runtime stage 依赖安装策略问题。
+
+### 5. 良好 / 基线 / 反例
+- Good：
+ - tooling stage 完整安装依赖，runtime stage 直接复制 `node_modules`。
+ - 或 runtime stage 先复制所有源码，`bun install`，再清理不需要的目录。
+- Base：
+ - 单包项目或非 workspace 项目的 runtime stage 依赖安装。
+- Bad：
+ - runtime stage 只复制部分源码，重新 `bun install`，依赖图被破坏。
+
+### 6. 必需测试（含断言点）
+- Docker assertions：
+ - `docker build -f Dockerfile.runner .` 成功。
+ - `docker run --rm zs-runner:local bun --version` 正常。
+ - `docker run --rm zs-runner:local zs --help` 正常导入 `tar` 与 `cross-spawn`。
+- CI assertions：
+ - 容器启动 smoke test 执行真实 CLI 命令（`zs --help`），而不仅检查 `bun install` 步骤。
+
+### 7. 错误示例 vs 正确示例
+#### 错误示例
+```dockerfile
+# runtime stage
+COPY package.json bun.lock ./
+COPY cli/package.json ./cli/package.json
+COPY shared/package.json ./shared/package.json
+RUN bun install --frozen-lockfile
+COPY cli ./cli
+COPY shared ./shared
+# 其他 workspace 源码未复制，依赖图不完整
+```
+
+#### 正确示例（方案 A：复制完整 node_modules）
+```dockerfile
+# tooling stage
+COPY . .
+RUN bun install --frozen-lockfile
+
+# runtime stage
+COPY --from=tooling /app/node_modules /app/node_modules
+COPY cli ./cli
+COPY shared ./shared
+```
+
+#### 正确示例（方案 B：完整源码安装后清理）
+```dockerfile
+# runtime stage
+COPY . .
+RUN bun install --frozen-lockfile \
+ && rm -rf hub web website docs
 ```
 
 ---
