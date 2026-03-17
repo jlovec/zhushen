@@ -152,13 +152,14 @@ For Docker / runner images that execute Bun-based CLIs:
 
 - Treat production image dependency closure as a runtime contract, not a build optimization detail.
 - Do not rely on filtered production installs unless you have verified that all transitive runtime dependencies are materialized in the final image.
-- If a runtime path imports packages like `tar`, prefer validating the final image with the actual startup command rather than assuming lockfile completeness is enough.
+- **If a runtime path imports packages like `tar`, prefer validating the final image with the actual startup command rather than assuming lockfile completeness is enough.**
 - For paired env vars such as `ZCF_API_KEY` / `ZCF_API_URL`, validate semantic shape (`key` should not look like URL, `url` should parse as URL) before mutating persisted config.
 - If the entrypoint can continue after config warnings, make sure the warning is precise enough to reveal whether the failure is recoverable or whether startup should stop.
 - Distinguish **container entrypoint commands** from **daemonized bootstrap commands**. A command that may legitimately exit with code `0` after discovering an existing background process is not a valid Docker PID 1 contract.
 - If a CLI subcommand can print messages like `already running` and then `process.exit(0)`, do not wire it directly as a long-running Compose service command.
 - For Compose services with `restart: unless-stopped`, verify that the main process is designed to stay in the foreground; otherwise a successful exit will become a restart loop.
 - Add an executable validation that checks not only `docker compose up`, but also that the service remains `Up` and reaches `healthy` after initial bootstrap.
+- **Bun workspace dependency closure in runtime stage: copying only partial workspace source and re-running `bun install` in runtime stage will cause transitive dependency loss and module resolution failures (e.g., `Cannot find module '@isaacs/fs-minipass'`, `EISDIR reading node_modules/cross-spawn`). Recommended approach: complete dependency installation in tooling stage, then copy `node_modules` directly to runtime stage; if reinstalling in runtime stage is necessary, first copy all workspace source, then run `bun install --frozen-lockfile`, and finally clean up unneeded source directories.**
 - For workflows that publish multi-architecture images (for example `linux/amd64,linux/arm64`), do not treat a successful local single-arch build as sufficient evidence; explicitly validate that the slowest target architecture can finish inside the CI builder / QEMU environment.
 - When an image has extra build-only stages (for example frontend `vite build`, static site packaging, or heavy asset compilation), treat that stage as an independent release-path risk instead of assuming another image in the same matrix proves the workflow is healthy.
 - If a multi-arch publish hangs on only one image while sibling matrix jobs finish, suspect that image's architecture-specific build path first rather than GHCR login or generic workflow wiring.
@@ -1269,6 +1270,91 @@ git rev-parse HEAD
 git ls-remote origin refs/heads/zs-docker
 gh run list --branch zs-docker
 # conclude whether the missing piece is push, PR metadata refresh, or pull_request_target trigger
+```
+
+---
+
+## Scenario: Docker Runner Runtime Dependency Closure Missing (Bun Workspace Runtime Stage)
+
+### 1. Scope / Trigger
+- Trigger: Docker runner image reports `Cannot find module '@isaacs/fs-minipass'` or `EISDIR reading node_modules/cross-spawn` at startup.
+- Why code-spec depth is required:
+  - Bun workspace dependency graph can be broken by missing partial source in multi-stage builds.
+  - Transitive dependencies (e.g., `tar`'s `@isaacs/fs-minipass`) not correctly resolved when re-running `bun install` in runtime stage.
+  - `cross-spawn` EISDIR error indicates abnormal node_modules structure (symlink or directory state).
+
+### 2. Signatures
+- Dockerfile runtime stage signature:
+  - `Dockerfile.runner`
+  - `COPY package.json bun.lock ./`
+  - `COPY cli/package.json ./cli/package.json` ... copy all workspace manifests
+  - `RUN bun install --frozen-lockfile`
+  - `COPY cli ./cli` / `COPY shared ./shared` — but not copying other workspace source
+- Error log signature:
+  - `error: Cannot find module '@isaacs/fs-minipass' from '/app/cli/node_modules/tar/dist/esm/extract.js'`
+  - `error: EISDIR reading "/app/cli/node_modules/cross-spawn"`
+
+### 3. Contracts
+- Workspace source completeness contract:
+  - Bun workspace dependency resolution requires all workspace source to exist, otherwise dependency graph is incomplete.
+  - If runtime stage only copies partial source, re-running `bun install` produces corrupted dependency tree.
+- Dependency closure contract:
+  - Final image must contain complete node_modules with all runtime transitive dependencies.
+  - Cannot assume lockfile + partial source + `bun install` will produce complete dependency closure.
+
+### 4. Validation & Error Matrix
+- runtime stage only copies partial workspace source and re-runs `bun install` -> transitive dependency missing (`@isaacs/fs-minipass`).
+- `cross-spawn` EISDIR -> node_modules structure abnormal, possibly caused by workspace resolution failure.
+- Local full build passes but container runtime module missing -> runtime stage dependency install strategy issue.
+
+### 5. Good/Base/Bad Cases
+- Good:
+  - tooling stage fully installs dependencies, runtime stage directly copies `node_modules`.
+  - Or runtime stage first copies all source, `bun install`, then cleans up unneeded directories.
+- Base:
+  - Single-package or non-workspace project runtime stage dependency install.
+- Bad:
+  - runtime stage only copies partial source, re-runs `bun install`, dependency graph broken.
+
+### 6. Tests Required (with assertion points)
+- Docker assertions:
+  - `docker build -f Dockerfile.runner .` succeeds.
+  - `docker run --rm zs-runner:local bun --version` normal.
+  - `docker run --rm zs-runner:local zs --help` successfully imports `tar` and `cross-spawn`.
+- CI assertions:
+  - Container startup smoke test executes real CLI command (`zs --help`), not just checking `bun install` step.
+
+### 7. Wrong vs Correct
+#### Wrong
+```dockerfile
+# runtime stage
+COPY package.json bun.lock ./
+COPY cli/package.json ./cli/package.json
+COPY shared/package.json ./shared/package.json
+RUN bun install --frozen-lockfile
+COPY cli ./cli
+COPY shared ./shared
+# Other workspace source not copied, dependency graph incomplete
+```
+
+#### Correct (Approach A: Copy complete node_modules)
+```dockerfile
+# tooling stage
+COPY . .
+RUN bun install --frozen-lockfile
+
+# runtime stage
+COPY --from=tooling /app/node_modules /app/node_modules
+COPY cli ./cli
+COPY shared ./shared
+```
+
+#### Correct (Approach B: Full source install then cleanup)
+```dockerfile
+# runtime stage
+COPY . .
+RUN bun install --frozen-lockfile \
+ && rm -rf hub web website docs
 ```
 
 ---
