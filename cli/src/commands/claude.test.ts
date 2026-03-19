@@ -20,18 +20,6 @@ mock.module('chalk', () => ({
     }
 }))
 
-mock.module('zod', () => ({
-    z: {
-        enum: mock((_values: string[]) => ({
-            parse: mock((value: string) => value)
-        }))
-    }
-}))
-
-mock.module('@zs/protocol', () => ({
-    PROTOCOL_VERSION: 1
-}))
-
 mock.module('@/configuration', () => ({
     configuration: {
         apiUrl: 'http://example.test'
@@ -39,7 +27,17 @@ mock.module('@/configuration', () => ({
 }))
 
 mock.module('@/runner/controlClient', () => ({
-    isRunnerRunningCurrentlyInstalledZhushenVersion: mockIsRunnerRunningCurrentlyInstalledZhushenVersion
+    notifyRunnerSessionStarted: mock(async () => ({ ok: true })),
+    listRunnerSessions: mock(async () => []),
+    stopRunnerSession: mock(async () => false),
+    spawnRunnerSession: mock(async () => ({})),
+    stopRunnerHttp: mock(async () => undefined),
+    getInstalledCliMtimeMs: mock(() => undefined),
+    getRunnerAvailability: mock(async () => ({ status: 'missing', state: null })),
+    checkIfRunnerRunningAndCleanupStaleState: mock(async () => false),
+    isRunnerRunningCurrentlyInstalledZhushenVersion: mockIsRunnerRunningCurrentlyInstalledZhushenVersion,
+    cleanupRunnerState: mock(async () => undefined),
+    stopRunner: mock(async () => false)
 }))
 
 mock.module('@/ui/auth', () => ({
@@ -58,7 +56,9 @@ mock.module('@/ui/tokenInit', () => ({
 }))
 
 mock.module('@/utils/spawnZhushenCLI', () => ({
-    spawnZhushenCLI: mockSpawnZhushenCLI
+    spawnZhushenCLI: mockSpawnZhushenCLI,
+    getZhushenCliCommand: mock(() => ({ command: 'zs', args: [] })),
+    getSpawnedCliWorkingDirectory: mock(() => process.cwd())
 }))
 
 mock.module('@/utils/autoStartServer', () => ({
@@ -70,10 +70,12 @@ mock.module('@/utils/bunRuntime', () => ({
 }))
 
 mock.module('@/utils/errorUtils', () => ({
+    apiValidationError: mock((message: string) => new Error(message)),
     extractErrorInfo: mock(() => ({
         message: 'boom',
         messageLower: 'boom'
-    }))
+    })),
+    isRetryableConnectionError: mock(() => false)
 }))
 
 mock.module('@/claude/utils/authConfig', () => ({

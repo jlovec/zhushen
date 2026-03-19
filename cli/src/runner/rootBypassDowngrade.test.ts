@@ -94,12 +94,30 @@ mock.module('@/utils/process', () => ({
   killProcess: mockKillProcess,
   killProcessByChildProcess: mockKillProcessByChildProcess
 }))
-mock.module('@/utils/time', () => ({ withRetry: mockWithRetry }))
-mock.module('@/utils/errorUtils', () => ({ isRetryableConnectionError: mockIsRetryableConnectionError }))
+mock.module('@/utils/time', async () => {
+  const actual = await import('@/utils/time')
+  return {
+    ...actual,
+    withRetry: mockWithRetry
+  }
+})
+mock.module('@/utils/errorUtils', async () => {
+  const actual = await import('@/utils/errorUtils')
+  return {
+    ...actual,
+    isRetryableConnectionError: mockIsRetryableConnectionError
+  }
+})
 mock.module('./controlClient', () => ({
+  notifyRunnerSessionStarted: mock(async () => ({ ok: true })),
+  listRunnerSessions: mock(async () => []),
+  stopRunnerSession: mock(async () => false),
+  spawnRunnerSession: mock(async () => ({})),
+  stopRunnerHttp: mock(async () => undefined),
   cleanupRunnerState: mockCleanupRunnerState,
   getInstalledCliMtimeMs: mockGetInstalledCliMtimeMs,
   getRunnerAvailability: mockGetRunnerAvailability,
+  checkIfRunnerRunningAndCleanupStaleState: mock(async () => false),
   isRunnerRunningCurrentlyInstalledZhushenVersion: mockIsRunnerRunningCurrentlyInstalledZhushenVersion,
   stopRunner: mockStopRunner
 }))
@@ -117,7 +135,9 @@ mock.module('./worktree', () => ({ createWorktree: mockCreateWorktree, removeWor
 mock.module('@/agent/sessionFactory', () => ({ buildMachineMetadata: mockBuildMachineMetadata }))
 mock.module('../../package.json', () => ({ default: { version: '1.0.0', bugs: 'https://github.com/test/test' } }))
 mock.module('@/utils/spawnZhushenCLI', () => ({
-  spawnZhushenCLI: mockSpawnZhushenCLI
+  spawnZhushenCLI: mockSpawnZhushenCLI,
+  getZhushenCliCommand: mock(() => ({ command: 'zs', args: [] })),
+  getSpawnedCliWorkingDirectory: mock(() => process.cwd())
 }))
 mock.module('@/ui/logger', () => ({
   logger: mockLogger

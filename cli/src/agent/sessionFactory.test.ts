@@ -15,7 +15,17 @@ mock.module('@/api/api', () => ({
 }))
 
 mock.module('@/runner/controlClient', () => ({
-    notifyRunnerSessionStarted: mockNotifyRunnerSessionStarted
+    notifyRunnerSessionStarted: mockNotifyRunnerSessionStarted,
+    listRunnerSessions: mock(async () => []),
+    stopRunnerSession: mock(async () => false),
+    spawnRunnerSession: mock(async () => ({})),
+    stopRunnerHttp: mock(async () => undefined),
+    getInstalledCliMtimeMs: mock(() => undefined),
+    getRunnerAvailability: mock(async () => ({ status: 'missing', state: null })),
+    checkIfRunnerRunningAndCleanupStaleState: mock(async () => false),
+    isRunnerRunningCurrentlyInstalledZhushenVersion: mock(async () => false),
+    cleanupRunnerState: mock(async () => undefined),
+    stopRunner: mock(async () => false)
 }))
 
 mock.module('@/persistence', () => ({

@@ -19,7 +19,11 @@ mock.module('@/ui/logger', () => ({
 }))
 mock.module('@/ui/auth', () => ({ authAndSetupMachineIfNeeded: mock() }))
 mock.module('@/ui/doctor', () => ({ getEnvironmentInfo: mock(() => ({})) }))
-mock.module('@/utils/spawnZhushenCLI', () => ({ spawnZhushenCLI: mock() }))
+mock.module('@/utils/spawnZhushenCLI', () => ({
+  spawnZhushenCLI: mock(),
+  getZhushenCliCommand: mock(() => ({ command: 'zs', args: [] })),
+  getSpawnedCliWorkingDirectory: mock(() => process.cwd())
+}))
 mock.module('@/persistence', () => ({
   writeRunnerState: mockWriteRunnerState,
   readRunnerState: mockReadRunnerState,
@@ -34,18 +38,34 @@ mock.module('@/utils/process', () => ({
   killProcess: mock(),
   killProcessByChildProcess: mock()
 }))
-mock.module('@/utils/time', () => ({
-  delay: mock(),
-  exponentialBackoffDelay: mock(() => 0),
-  createBackoff: mock(() => mock(async <T>(callback: () => Promise<T>) => await callback())),
-  backoff: mock(async <T>(callback: () => Promise<T>) => await callback()),
-  withRetry: mock(async <T>(fn: () => Promise<T>) => await fn())
-}))
-mock.module('@/utils/errorUtils', () => ({ isRetryableConnectionError: mock(() => false) }))
+mock.module('@/utils/time', async () => {
+  const actual = await import('@/utils/time')
+  return {
+    ...actual,
+    delay: mock(),
+    exponentialBackoffDelay: mock(() => 0),
+    createBackoff: mock(() => mock(async <T>(callback: () => Promise<T>) => await callback())),
+    backoff: mock(async <T>(callback: () => Promise<T>) => await callback()),
+    withRetry: mock(async <T>(fn: () => Promise<T>) => await fn())
+  }
+})
+mock.module('@/utils/errorUtils', async () => {
+  const actual = await import('@/utils/errorUtils')
+  return {
+    ...actual,
+    isRetryableConnectionError: mock(() => false)
+  }
+})
 mock.module('./controlClient', () => ({
+  notifyRunnerSessionStarted: mock(async () => ({ ok: true })),
+  listRunnerSessions: mock(async () => []),
+  stopRunnerSession: mock(async () => false),
+  spawnRunnerSession: mock(async () => ({})),
+  stopRunnerHttp: mock(async () => undefined),
   cleanupRunnerState: mock(),
   getInstalledCliMtimeMs: mock(),
   getRunnerAvailability: mockGetRunnerAvailability,
+  checkIfRunnerRunningAndCleanupStaleState: mock(async () => false),
   isRunnerRunningCurrentlyInstalledZhushenVersion: mockIsRunnerRunningCurrentlyInstalledZhushenVersion,
   stopRunner: mockStopRunner
 }))

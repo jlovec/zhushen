@@ -9,9 +9,13 @@ const mockLogger = {
     warn: mock()
 }
 
-mock.module('node:child_process', () => ({
-    execFile: mockExecFile
-}))
+mock.module('node:child_process', async () => {
+    const actual = await import('node:child_process')
+    return {
+        ...actual,
+        execFile: mockExecFile
+    }
+})
 
 mock.module('node:fs/promises', () => ({
     lstat: mockLstat,
