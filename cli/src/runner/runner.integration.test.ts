@@ -52,6 +52,16 @@ async function waitFor(
   throw new Error('Timeout waiting for condition');
 }
 
+function isLocalApiUrl(apiUrl: string): boolean {
+  const normalized = apiUrl.toLowerCase();
+  return normalized.startsWith('http://localhost:') || normalized.startsWith('http://127.0.0.1:');
+}
+
+function usesIsolatedZhushenHome(homeDir: string): boolean {
+  const defaultHome = join(homedir(), '.zhushen');
+  return homeDir !== defaultHome;
+}
+
 // Check if dev hub is running and properly configured
 async function isServerHealthy(): Promise<boolean> {
   try {
@@ -74,7 +84,7 @@ async function isServerHealthy(): Promise<boolean> {
       console.log('[TEST] Bot health check failed: bot not ready (503)');
       return false;
     }
-    
+
     return true;
   } catch (error) {
     console.log('[TEST] Bot not reachable:', error);
@@ -82,29 +92,15 @@ async function isServerHealthy(): Promise<boolean> {
   }
 }
 
-describe.skipIf(!await isServerHealthy())('Runner Integration Tests', { timeout: 20_000 }, () => {
+const shouldRunIntegrationTests = isLocalApiUrl(configuration.apiUrl)
+  && usesIsolatedZhushenHome(configuration.zhushenHomeDir)
+  && await isServerHealthy();
+
+describe.skipIf(!shouldRunIntegrationTests)('Runner Integration Tests', { timeout: 20_000 }, () => {
   let runnerPid: number;
   let shouldCleanupIsolatedHome = false;
 
   beforeAll(() => {
-    const defaultHome = join(homedir(), '.zhushen');
-    const apiUrl = configuration.apiUrl.toLowerCase();
-    const isLocalApi = apiUrl.startsWith('http://localhost:') || apiUrl.startsWith('http://127.0.0.1:');
-
-    if (configuration.zhushenHomeDir === defaultHome) {
-      throw new Error(
-        `[TEST] Refusing to run runner integration tests against default ZS_HOME: ${configuration.zhushenHomeDir}. ` +
-          'Set isolated ZS_HOME in .env.integration-test.'
-      );
-    }
-
-    if (!isLocalApi) {
-      throw new Error(
-        `[TEST] Refusing to run runner integration tests against non-local API URL: ${configuration.apiUrl}. ` +
-          'Use local http://localhost:<port> hub for integration tests.'
-      );
-    }
-
     const isolatedHomePrefix = `${join(tmpdir(), 'zs-integration-test-')}`;
     shouldCleanupIsolatedHome = configuration.zhushenHomeDir.startsWith(isolatedHomePrefix);
   });
@@ -171,7 +167,7 @@ describe.skipIf(!await isServerHealthy())('Runner Integration Tests', { timeout:
     // Verify session is tracked
     const sessions = await listRunnerSessions();
     expect(sessions).toHaveLength(1);
-    
+
     const tracked = sessions[0];
     expect(tracked.startedBy).toBe('zs directly - likely by user from terminal');
     expect(tracked.zhushenSessionId).toBe('test-session-123');
@@ -238,7 +234,7 @@ describe.skipIf(!await isServerHealthy())('Runner Integration Tests', { timeout:
     }, 10_000, 200);
   });
 
-  it('should handle runner stop request gracefully', async () => {    
+  it('should handle runner stop request gracefully', async () => {
     await stopRunnerHttp();
 
     // Verify metadata file is cleaned up
