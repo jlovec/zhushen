@@ -2,7 +2,11 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { execFileSync } from 'child_process'
 import { mkdirSync, rmSync, writeFileSync } from 'fs'
 import { tmpdir } from 'os'
-import { join } from 'path'
+import { dirname, join } from 'path'
+import { fileURLToPath } from 'url'
+
+const cliDir = dirname(fileURLToPath(new URL('../package.json', import.meta.url)))
+const bunBinary = process.env.BUN_BINARY ?? '/usr/local/bin/bun'
 
 function createTempHome(): string {
   const home = join(tmpdir(), `zs-config-test-${process.pid}-${Date.now()}-${Math.random().toString(16).slice(2)}`)
@@ -11,12 +15,12 @@ function createTempHome(): string {
 }
 
 function readRunnerLogDestination(tempHome: string, extraEnv: NodeJS.ProcessEnv = {}): string {
-  return execFileSync('bun', ['--eval', `
+  return execFileSync(bunBinary, ['--eval', `
     import('./src/configuration.ts').then(({ configuration }) => {
       console.log(configuration.runnerLogDestination)
     })
   `], {
-    cwd: '/data/zhushen-worktrees/0319-c6da/cli',
+    cwd: cliDir,
     env: {
       ...process.env,
       ...extraEnv,

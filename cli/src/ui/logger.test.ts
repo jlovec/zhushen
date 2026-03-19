@@ -2,8 +2,11 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { execFileSync } from 'child_process'
 import { mkdirSync, rmSync, writeFileSync, utimesSync } from 'fs'
 import { tmpdir } from 'os'
-import { join } from 'path'
+import { dirname, join } from 'path'
+import { fileURLToPath } from 'url'
 
+const cliDir = dirname(fileURLToPath(new URL('../../package.json', import.meta.url)))
+const bunBinary = process.env.BUN_BINARY ?? '/usr/local/bin/bun'
 const originalArgs = process.argv.slice()
 const originalZsHome = process.env.ZS_HOME
 const originalDebug = process.env.DEBUG
@@ -16,7 +19,7 @@ function createTempHome(): string {
 }
 
 function runLoggerProbe(tempHome: string, extraEnv: NodeJS.ProcessEnv = {}) {
-  const output = execFileSync('bun', ['--eval', `
+  const output = execFileSync(bunBinary, ['--eval', `
     process.argv = ['bun', 'src/index.ts', 'runner', 'start-sync']
     import('./src/ui/logger.ts').then(async ({ logger, listRunnerLogFiles, getLatestRunnerLog }) => {
       logger.debug('[RUNNER RUN] probe')
@@ -30,7 +33,7 @@ function runLoggerProbe(tempHome: string, extraEnv: NodeJS.ProcessEnv = {}) {
       }))
     })
   `], {
-    cwd: '/data/zhushen-worktrees/0319-c6da/cli',
+    cwd: cliDir,
     env: {
       ...process.env,
       ...extraEnv,
