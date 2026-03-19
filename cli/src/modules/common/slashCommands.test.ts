@@ -1,39 +1,47 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
-import { listSlashCommands } from './slashCommands'
+
+type SlashCommandsModule = typeof import('./slashCommands')
+
+const originalHome = process.env.HOME
+
+let listSlashCommands: SlashCommandsModule['listSlashCommands']
 
 describe('listSlashCommands', () => {
-    const originalClaudeConfigDir = process.env.CLAUDE_CONFIG_DIR
     let sandboxDir: string
-    let claudeConfigDir: string
+    let homeClaudeDir: string
     let projectDir: string
 
     beforeEach(async () => {
         sandboxDir = await mkdtemp(join(tmpdir(), 'zs-slash-commands-'))
-        claudeConfigDir = join(sandboxDir, 'global-claude')
+        process.env.HOME = join(sandboxDir, 'home')
+        delete process.env.CLAUDE_CONFIG_DIR
+        vi.resetModules()
+
+        ;({ listSlashCommands } = await import('./slashCommands'))
+
+        homeClaudeDir = join(process.env.HOME, '.claude')
         projectDir = join(sandboxDir, 'project')
 
-        process.env.CLAUDE_CONFIG_DIR = claudeConfigDir
-
-        await mkdir(join(claudeConfigDir, 'commands'), { recursive: true })
+        await mkdir(join(homeClaudeDir, 'commands'), { recursive: true })
         await mkdir(join(projectDir, '.claude', 'commands'), { recursive: true })
     })
 
     afterEach(async () => {
-        if (originalClaudeConfigDir === undefined) {
-            delete process.env.CLAUDE_CONFIG_DIR
+        delete process.env.CLAUDE_CONFIG_DIR
+        if (originalHome === undefined) {
+            delete process.env.HOME
         } else {
-            process.env.CLAUDE_CONFIG_DIR = originalClaudeConfigDir
+            process.env.HOME = originalHome
         }
-
         await rm(sandboxDir, { recursive: true, force: true })
     })
 
     it('keeps backward-compatible behavior when projectDir is not provided', async () => {
         await writeFile(
-            join(claudeConfigDir, 'commands', 'global-only.md'),
+            join(homeClaudeDir, 'commands', 'global-only.md'),
             ['---', 'description: Global only', '---', '', 'Global command body'].join('\n')
         )
 
@@ -61,7 +69,7 @@ describe('listSlashCommands', () => {
 
     it('prefers project command when project and global have same name', async () => {
         await writeFile(
-            join(claudeConfigDir, 'commands', 'shared.md'),
+            join(homeClaudeDir, 'commands', 'shared.md'),
             ['---', 'description: Global shared', '---', '', 'Global body'].join('\n')
         )
         await writeFile(

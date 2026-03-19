@@ -1,38 +1,53 @@
 /**
  * Tests for Claude settings reading functionality
- * 
+ *
  * Tests reading Claude's settings.json file and respecting the includeCoAuthoredBy setting
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { existsSync, writeFileSync, unlinkSync, mkdirSync, rmSync } from 'node:fs';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { existsSync, writeFileSync, mkdirSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
-import { tmpdir } from 'node:os';
-import { readClaudeSettings, shouldIncludeCoAuthoredBy } from './claudeSettings';
+
+vi.mock('@/ui/logger', () => ({
+  logger: {
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+  }
+}));
+
+type ClaudeSettingsModule = typeof import('./claudeSettings');
+
+const testHomeDir = '/tmp/zs-claude-settings-test-home';
+const originalHome = process.env.HOME;
+
+let readClaudeSettings: ClaudeSettingsModule['readClaudeSettings'];
+let shouldIncludeCoAuthoredBy: ClaudeSettingsModule['shouldIncludeCoAuthoredBy'];
 
 describe('Claude Settings', () => {
   let testClaudeDir: string;
-  let originalClaudeConfigDir: string | undefined;
 
-  beforeEach(() => {
-    // Create a temporary directory for testing
-    testClaudeDir = join(tmpdir(), `test-claude-${Date.now()}`);
+  beforeEach(async () => {
+    process.env.HOME = testHomeDir;
+    delete process.env.CLAUDE_CONFIG_DIR;
+    vi.resetModules();
+
+    ({ readClaudeSettings, shouldIncludeCoAuthoredBy } = await import('./claudeSettings'));
+
+    testClaudeDir = join(testHomeDir, '.claude');
     mkdirSync(testClaudeDir, { recursive: true });
-    
-    // Set environment variable to point to test directory
-    originalClaudeConfigDir = process.env.CLAUDE_CONFIG_DIR;
-    process.env.CLAUDE_CONFIG_DIR = testClaudeDir;
+    rmSync(join(testClaudeDir, 'settings.json'), { force: true });
   });
 
   afterEach(() => {
-    // Restore original environment variable
-    if (originalClaudeConfigDir !== undefined) {
-      process.env.CLAUDE_CONFIG_DIR = originalClaudeConfigDir;
+    delete process.env.CLAUDE_CONFIG_DIR;
+    if (originalHome === undefined) {
+      delete process.env.HOME;
     } else {
-      delete process.env.CLAUDE_CONFIG_DIR;
+      process.env.HOME = originalHome;
     }
-    
-    // Clean up test directory
+
     if (existsSync(testClaudeDir)) {
       rmSync(testClaudeDir, { recursive: true, force: true });
     }

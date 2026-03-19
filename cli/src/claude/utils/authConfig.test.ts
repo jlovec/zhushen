@@ -1,21 +1,41 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { homedir, tmpdir } from 'node:os';
-import { checkClaudeAuthConfig, formatClaudeAuthConfigError } from './authConfig';
+
+vi.mock('@/ui/logger', () => ({
+  logger: {
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+  }
+}));
+
+type AuthConfigModule = typeof import('./authConfig');
+
+const testHomeDir = '/tmp/zs-auth-config-test-home';
+const originalHome = process.env.HOME;
+
+let checkClaudeAuthConfig: AuthConfigModule['checkClaudeAuthConfig'];
+let formatClaudeAuthConfigError: AuthConfigModule['formatClaudeAuthConfigError'];
 
 describe('checkClaudeAuthConfig', () => {
   let testClaudeDir: string;
-  let originalClaudeConfigDir: string | undefined;
   let legacyConfigBackupPath: string | null = null;
-  const legacyConfigPath = join(homedir(), '.claude.json');
+  let legacyConfigPath: string;
 
-  beforeEach(() => {
-    testClaudeDir = join(tmpdir(), `test-claude-auth-${Date.now()}-${Math.random().toString(16).slice(2)}`);
+  beforeEach(async () => {
+    process.env.HOME = testHomeDir;
+    delete process.env.CLAUDE_CONFIG_DIR;
+    vi.resetModules();
+
+    ({ checkClaudeAuthConfig, formatClaudeAuthConfigError } = await import('./authConfig'));
+
+    testClaudeDir = join(testHomeDir, '.claude');
+    legacyConfigPath = join(testHomeDir, '.claude.json');
+
     mkdirSync(testClaudeDir, { recursive: true });
-
-    originalClaudeConfigDir = process.env.CLAUDE_CONFIG_DIR;
-    process.env.CLAUDE_CONFIG_DIR = testClaudeDir;
+    rmSync(join(testClaudeDir, 'settings.json'), { force: true });
 
     if (existsSync(legacyConfigPath)) {
       legacyConfigBackupPath = `${legacyConfigPath}.bak-${Date.now()}`;
@@ -24,17 +44,21 @@ describe('checkClaudeAuthConfig', () => {
     } else {
       legacyConfigBackupPath = null;
     }
-  });
-
-  afterEach(() => {
-    if (originalClaudeConfigDir !== undefined) {
-      process.env.CLAUDE_CONFIG_DIR = originalClaudeConfigDir;
-    } else {
-      delete process.env.CLAUDE_CONFIG_DIR;
-    }
 
     delete process.env.CLAUDE_CODE_OAUTH_TOKEN;
     delete process.env.ANTHROPIC_API_KEY;
+  });
+
+  afterEach(() => {
+    delete process.env.CLAUDE_CODE_OAUTH_TOKEN;
+    delete process.env.ANTHROPIC_API_KEY;
+    delete process.env.CLAUDE_CONFIG_DIR;
+
+    if (originalHome === undefined) {
+      delete process.env.HOME;
+    } else {
+      process.env.HOME = originalHome;
+    }
 
     if (existsSync(testClaudeDir)) {
       rmSync(testClaudeDir, { recursive: true, force: true });
