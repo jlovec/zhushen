@@ -49,6 +49,7 @@ function runLoggerProbe(tempHome: string, extraEnv: NodeJS.ProcessEnv = {}): Log
       ...process.env,
       ...extraEnv,
       ZS_HOME: tempHome,
+      ZS_RUNNER_LOG_DESTINATION: extraEnv.ZS_RUNNER_LOG_DESTINATION,
     },
     encoding: 'utf8'
   }).trim()
