@@ -14,7 +14,9 @@ mock.module('@/ui/logger', () => ({
   logger: {
     debug: mock(),
     debugLargeJson: mock()
-  }
+  },
+  getLatestRunnerLog: mock(async () => null),
+  listRunnerLogFiles: mock(async () => [])
 }))
 
 mock.module('@/persistence', () => ({

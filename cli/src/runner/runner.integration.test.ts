@@ -204,66 +204,6 @@ describe('Runner Integration Tests', () => {
   }
 
   integrationTest('should list sessions (initially empty)', async () => {
-
-    // First ensure no runner is running by checking PID in metadata file
-    await stopRunner()
-
-    // Start fresh runner for this test
-    // This will return and start a background process - we don't need to wait for it
-    void spawnZhushenCLI(['runner', 'start'], {
-      stdio: 'ignore'
-    });
-
-    // Wait for runner to write its state file (it needs to auth, setup, and start server)
-    await waitFor(async () => {
-      const state = await readRunnerState();
-      return state !== null;
-    }, 10_000, 250); // Wait up to 10 seconds, checking every 250ms
-
-    const runnerState = await readRunnerState();
-    if (!runnerState) {
-      throw new Error('Runner failed to start within timeout');
-    }
-    runnerPid = runnerState.pid;
-
-    console.log(`[TEST] Runner started for test: PID=${runnerPid}`);
-    console.log(`[TEST] Runner log file: ${runnerState?.runnerLogPath}`);
-  }, 20_000);
-
-  afterEach(async () => {
-    const skipReason = await shouldSkipIntegrationTest();
-    if (skipReason) {
-      return;
-    }
-
-    await stopRunner()
-  }, 10_000);
-
-  function integrationTest(name: string, fn: () => Promise<void>): void {
-    test(name, async () => {
-      const skipReason = await shouldSkipIntegrationTest();
-      if (skipReason) {
-        console.log(`${skipReason}; skipping \"${name}\"`);
-        return;
-      }
-
-      await fn();
-    });
-  }
-
-  function integrationTestWithTimeout(name: string, timeout: number, fn: () => Promise<void>): void {
-    test(name, async () => {
-      const skipReason = await shouldSkipIntegrationTest();
-      if (skipReason) {
-        console.log(`${skipReason}; skipping \"${name}\"`);
-        return;
-      }
-
-      await fn();
-    }, timeout);
-  }
-
-  integrationTest('should list sessions (initially empty)', async () => {
     const sessions = await listRunnerSessions();
     expect(sessions).toEqual([]);
   });

@@ -1,5 +1,83 @@
-import { afterEach, beforeEach, describe, expect, it, mock, spyOn } from 'bun:test'
+import { afterAll, afterEach, beforeEach, describe, expect, it, mock } from 'bun:test'
 import * as fsPromises from 'node:fs/promises'
+
+const realSetTimeout = globalThis.setTimeout
+const scheduledTimeouts = new Set<ReturnType<typeof setTimeout>>()
+
+function trackTimeout(callback: (...args: any[]) => void, delay?: number, ...args: any[]) {
+  const handle = realSetTimeout((...innerArgs: any[]) => {
+    scheduledTimeouts.delete(handle)
+    callback(...innerArgs)
+  }, delay, ...args)
+  scheduledTimeouts.add(handle)
+  return handle
+}
+
+function clearScheduledTimeouts() {
+  for (const handle of scheduledTimeouts) {
+    clearTimeout(handle)
+  }
+  scheduledTimeouts.clear()
+}
+
+globalThis.setTimeout = trackTimeout as typeof setTimeout
+if (typeof global !== 'undefined') {
+  global.setTimeout = trackTimeout as typeof setTimeout
+}
+
+process.setMaxListeners(Math.max(process.getMaxListeners(), 50))
+process.removeAllListeners('SIGINT')
+process.removeAllListeners('SIGTERM')
+process.removeAllListeners('uncaughtException')
+process.removeAllListeners('unhandledRejection')
+process.removeAllListeners('exit')
+process.removeAllListeners('beforeExit')
+
+const originalProcessExit = process.exit
+process.exit = ((code?: string | number | null | undefined) => {
+  throw new Error(`EXIT:${code ?? 0}`)
+}) as typeof process.exit
+
+const originalConsoleLog = console.log
+console.log = mock(() => undefined) as typeof console.log
+
+const originalConsoleError = console.error
+console.error = mock(() => undefined) as typeof console.error
+
+const originalProcessOn = process.on.bind(process)
+const registeredProcessListeners = new Map<string, Set<(...args: any[]) => void>>()
+process.on = ((event: string, listener: (...args: any[]) => void) => {
+  const listeners = registeredProcessListeners.get(event) ?? new Set<(...args: any[]) => void>()
+  listeners.add(listener)
+  registeredProcessListeners.set(event, listeners)
+  return originalProcessOn(event as any, listener as any)
+}) as typeof process.on
+
+function cleanupProcessListeners() {
+  for (const [event, listeners] of registeredProcessListeners.entries()) {
+    for (const listener of listeners) {
+      process.off(event as any, listener as any)
+    }
+  }
+  registeredProcessListeners.clear()
+}
+
+afterEach(() => {
+  clearScheduledTimeouts()
+  cleanupProcessListeners()
+})
+
+afterAll(() => {
+  globalThis.setTimeout = realSetTimeout
+  if (typeof global !== 'undefined') {
+    global.setTimeout = realSetTimeout
+  }
+  process.exit = originalProcessExit
+  console.log = originalConsoleLog
+  console.error = originalConsoleError
+  process.on = originalProcessOn as typeof process.on
+})
+
 
 const mockGetRunnerAvailability = mock()
 const mockIsRunnerRunningCurrentlyInstalledZhushenVersion = mock()
@@ -23,7 +101,9 @@ mock.module('@/ui/logger', () => ({
   logger: {
     debug: mock(),
     debugLargeJson: mock()
-  }
+  },
+  getLatestRunnerLog: mock(async () => null),
+  listRunnerLogFiles: mock(async () => [])
 }))
 mock.module('@/ui/auth', () => ({ authAndSetupMachineIfNeeded: mock() }))
 mock.module('@/ui/doctor', () => ({ getEnvironmentInfo: mock(() => ({})) }))
@@ -38,7 +118,8 @@ mock.module('@/persistence', () => ({
   acquireRunnerLock: mockAcquireRunnerLock,
   releaseRunnerLock: mockReleaseRunnerLock,
   clearRunnerState: mockClearRunnerState,
-  clearRunnerLock: mockClearRunnerLock
+  clearRunnerLock: mockClearRunnerLock,
+  readSettings: mock(async () => ({}))
 }))
 mock.module('@/utils/process', () => ({
   isProcessAlive: mock(),
@@ -133,17 +214,10 @@ describe('startRunner degraded handling', () => {
     })
     mockIsRunnerRunningCurrentlyInstalledZhushenVersion.mockResolvedValue(false)
 
-    const exitSpy = spyOn(process, 'exit').mockImplementation(((code?: string | number | null | undefined) => {
-      throw new Error(`EXIT:${code ?? 0}`)
-    }) as never)
+    const { startRunner } = await import('./run')
 
-    try {
-      const { startRunner } = await import('./run')
-      await expect(startRunner()).rejects.toThrow('EXIT:0')
-      expect(mockStopRunner).not.toHaveBeenCalled()
-      expect(mockIsRunnerRunningCurrentlyInstalledZhushenVersion).not.toHaveBeenCalled()
-    } finally {
-      exitSpy.mockRestore()
-    }
+    await expect(startRunner()).rejects.toThrow('EXIT:0')
+    expect(mockStopRunner).not.toHaveBeenCalled()
+    expect(mockIsRunnerRunningCurrentlyInstalledZhushenVersion).not.toHaveBeenCalled()
   })
 })

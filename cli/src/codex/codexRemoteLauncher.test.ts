@@ -40,7 +40,9 @@ mock.module('@/ui/logger', () => ({
     debug: mock(),
     warn: mock(),
     getLogPath: mock(() => '/tmp/zs-update/test.log')
-  }
+  },
+  getLatestRunnerLog: mock(async () => null),
+  listRunnerLogFiles: mock(async () => [])
 }))
 
 mock.module('@/ui/terminalState', () => ({
@@ -52,7 +54,8 @@ mock.module('@/ui/ink/CodexDisplay', () => ({
 }))
 
 mock.module('@/persistence', () => ({
-  readRunnerState: mock(async () => null)
+  readRunnerState: mock(async () => null),
+  readSettings: mock(async () => ({}))
 }))
 
 mock.module('./codexMcpClient', () => ({

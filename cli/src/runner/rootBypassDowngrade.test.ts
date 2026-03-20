@@ -87,7 +87,8 @@ mock.module('@/persistence', () => ({
   acquireRunnerLock: mockAcquireRunnerLock,
   releaseRunnerLock: mockReleaseRunnerLock,
   clearRunnerState: mockClearRunnerState,
-  clearRunnerLock: mockClearRunnerLock
+  clearRunnerLock: mockClearRunnerLock,
+  readSettings: mock(async () => ({}))
 }))
 mock.module('@/utils/process', () => ({
   isProcessAlive: mockIsProcessAlive,
@@ -148,7 +149,9 @@ mock.module('@/utils/spawnZhushenCLI', () => ({
   getSpawnedCliWorkingDirectory: mock(() => process.cwd())
 }))
 mock.module('@/ui/logger', () => ({
-  logger: mockLogger
+  logger: mockLogger,
+  getLatestRunnerLog: mock(async () => null),
+  listRunnerLogFiles: mock(async () => [])
 }))
 mock.module('node:fs/promises', () => ({
   access: mockAccess,
