@@ -17,7 +17,9 @@ spyOn(fsPromises, 'readFile').mockImplementation(mockReadFile as unknown as type
 spyOn(fsPromises, 'realpath').mockImplementation(mockRealpath as unknown as typeof fsPromises.realpath)
 
 mock.module('@/ui/logger', () => ({
-    logger: mockLogger
+    logger: mockLogger,
+    getLatestRunnerLog: mock(async () => null),
+    listRunnerLogFiles: mock(async () => [])
 }))
 
 describe('gitSafeDirectory', () => {

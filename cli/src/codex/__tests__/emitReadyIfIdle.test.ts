@@ -1,10 +1,10 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, mock } from 'bun:test';
 import { emitReadyIfIdle } from '../runCodex';
 
 describe('emitReadyIfIdle', () => {
     it('emits ready and notification when queue is idle', () => {
-        const sendReady = vi.fn();
-        const notify = vi.fn();
+        const sendReady = mock();
+        const notify = mock();
 
         const emitted = emitReadyIfIdle({
             pending: null,
@@ -20,7 +20,7 @@ describe('emitReadyIfIdle', () => {
     });
 
     it('skips when a message is still pending', () => {
-        const sendReady = vi.fn();
+        const sendReady = mock();
 
         const emitted = emitReadyIfIdle({
             pending: {},
@@ -34,7 +34,7 @@ describe('emitReadyIfIdle', () => {
     });
 
     it('skips when queue still has items', () => {
-        const sendReady = vi.fn();
+        const sendReady = mock();
 
         const emitted = emitReadyIfIdle({
             pending: null,
@@ -48,7 +48,7 @@ describe('emitReadyIfIdle', () => {
     });
 
     it('skips when shutdown is requested', () => {
-        const sendReady = vi.fn();
+        const sendReady = mock();
 
         const emitted = emitReadyIfIdle({
             pending: null,

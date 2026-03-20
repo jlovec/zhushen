@@ -1,19 +1,25 @@
-import { afterAll, beforeAll, beforeEach, describe, expect, it, mock, spyOn } from 'bun:test'
+import { afterAll, beforeAll, beforeEach, describe, expect, it, mock } from 'bun:test'
 import type { SpawnOptions } from 'child_process'
-import * as childProcess from 'node:child_process'
 
 const spawnMock = mock((..._args: any[]) => ({ pid: 12345 } as any))
-const spawnSpy = spyOn(childProcess, 'spawn').mockImplementation(spawnMock as unknown as typeof childProcess.spawn)
+const childProcessMock = {
+  spawn: spawnMock,
+}
+
+mock.module('node:child_process', () => childProcessMock)
 
 mock.module('@/projectPath', () => ({
   projectPath: mock(() => '/mock/project'),
+  runtimePath: mock(() => '/mock/project'),
   isBunCompiled: mock(() => false)
 }))
 
 mock.module('@/ui/logger', () => ({
   logger: {
     debug: mock()
-  }
+  },
+  getLatestRunnerLog: mock(async () => null),
+  listRunnerLogFiles: mock(async () => [])
 }))
 
 mock.module('node:fs', () => ({
@@ -26,8 +32,15 @@ mock.module('cross-spawn', () => ({
   }
 }))
 
+type SpawnZhushenCLIModule = typeof import('./spawnZhushenCLI')
+
+async function importFreshSpawnZhushenCLIModule(): Promise<SpawnZhushenCLIModule> {
+  return import(`./spawnZhushenCLI?test=${Date.now()}-${Math.random()}`)
+}
+
 const originalPlatformDescriptor = Object.getOwnPropertyDescriptor(process, 'platform')
 const originalVersionsDescriptor = Object.getOwnPropertyDescriptor(process, 'versions')
+
 
 function setPlatform(value: string) {
   Object.defineProperty(process, 'platform', {
@@ -81,7 +94,7 @@ describe('spawnZhushenCLI windowsHide behavior', () => {
 
   it('sets windowsHide=true when platform is win32 and detached=true', async () => {
     setPlatform('win32')
-    const { spawnZhushenCLI } = await import('./spawnZhushenCLI')
+    const { spawnZhushenCLI } = await importFreshSpawnZhushenCLIModule()
 
     spawnZhushenCLI(['runner', 'start-sync'], {
       detached: true,
@@ -95,7 +108,7 @@ describe('spawnZhushenCLI windowsHide behavior', () => {
 
   it('does not set windowsHide when platform is win32 but detached is false', async () => {
     setPlatform('win32')
-    const { spawnZhushenCLI } = await import('./spawnZhushenCLI')
+    const { spawnZhushenCLI } = await importFreshSpawnZhushenCLIModule()
 
     spawnZhushenCLI(['runner', 'start-sync'], {
       detached: false,
@@ -109,7 +122,7 @@ describe('spawnZhushenCLI windowsHide behavior', () => {
 
   it('does not set windowsHide on non-win32 even when detached=true', async () => {
     setPlatform('linux')
-    const { spawnZhushenCLI } = await import('./spawnZhushenCLI')
+    const { spawnZhushenCLI } = await importFreshSpawnZhushenCLIModule()
 
     spawnZhushenCLI(['runner', 'start-sync'], {
       detached: true,
@@ -141,7 +154,7 @@ describe('spawnZhushenCLI cwd propagation for bun runtime', () => {
 
   it('keeps bun execution rooted at the project while forwarding requested cwd via env', async () => {
     setVersions({ ...process.versions, bun: '1.3.5' })
-    const { spawnZhushenCLI } = await import('./spawnZhushenCLI')
+    const { spawnZhushenCLI } = await importFreshSpawnZhushenCLIModule()
 
     spawnZhushenCLI(['runner', 'start-sync'], {
       cwd: '/tmp/session-dir',

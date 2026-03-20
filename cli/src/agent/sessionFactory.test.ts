@@ -1,5 +1,11 @@
 import { beforeEach, describe, expect, it, mock } from 'bun:test'
 
+type SessionFactoryModule = typeof import('./sessionFactory')
+
+async function importFreshSessionFactoryModule(): Promise<SessionFactoryModule> {
+    return import(`./sessionFactory?test=${Date.now()}-${Math.random()}`)
+}
+
 const mockCreate = mock()
 const mockGetOrCreateMachine = mock()
 const mockGetOrCreateSession = mock()
@@ -41,7 +47,9 @@ mock.module('@/configuration', () => ({
 mock.module('@/ui/logger', () => ({
     logger: {
         debug: mock()
-    }
+    },
+    getLatestRunnerLog: mock(async () => null),
+    listRunnerLogFiles: mock(async () => [])
 }))
 
 mock.module('@/projectPath', () => ({
@@ -103,7 +111,7 @@ describe('bootstrapSession', () => {
     })
 
     it('runs git trust preflight before creating the API session', async () => {
-        const { bootstrapSession } = await import('./sessionFactory')
+        const { bootstrapSession } = await importFreshSessionFactoryModule()
 
         await bootstrapSession({
             flavor: 'claude',
@@ -118,7 +126,7 @@ describe('bootstrapSession', () => {
     it('stops bootstrap when git trust repair fails', async () => {
         mockEnsureGitSafeDirectoryForSession.mockRejectedValue(new Error('Failed to repair Git safe.directory'))
 
-        const { bootstrapSession } = await import('./sessionFactory')
+        const { bootstrapSession } = await importFreshSessionFactoryModule()
 
         await expect(
             bootstrapSession({

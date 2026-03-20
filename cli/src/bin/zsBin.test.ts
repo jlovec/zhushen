@@ -1,7 +1,7 @@
 import { createRequire } from 'node:module';
 import path from 'node:path';
 
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 
 const require = createRequire(import.meta.url);
 const binModulePath = path.resolve(process.cwd(), 'bin/zs.cjs');

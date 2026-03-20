@@ -17,7 +17,9 @@ mock.module('@/ui/logger', () => ({
     info: () => {},
     warn: () => {},
     error: () => {},
-  }
+  },
+  getLatestRunnerLog: mock(async () => null),
+  listRunnerLogFiles: mock(async () => [])
 }));
 
 type ClaudeSettingsModule = typeof import('./claudeSettings');

@@ -7,7 +7,9 @@ mock.module('@/ui/logger', () => ({
   logger: {
     warn: warnMock,
     debug: debugMock,
-  }
+  },
+  getLatestRunnerLog: mock(async () => null),
+  listRunnerLogFiles: mock(async () => [])
 }))
 
 mock.module('bun-pty', () => ({}))
