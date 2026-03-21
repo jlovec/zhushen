@@ -24,7 +24,6 @@ From `.github/workflows/test.yml`:
 - Core checks include:
   - `bun install`
   - `bun typecheck`
-  - setup integration test env file for CLI
   - `bun run test`
 
 ---
@@ -44,15 +43,15 @@ From `.github/workflows/test.yml`:
 
 ### Monorepo Test Failure Triage (CLI Changes)
 
-When a CLI-focused change triggers `bun run test:cli` failures, triage in this order:
+When a CLI-focused change triggers test failures, triage in this order:
 
 1. **Identify unrelated global failures first**
-   - If a non-runner file like `src/agent/backends/acp/AcpSdkBackend.test.ts` fails before/alongside your target area, treat it as a separate baseline issue.
+   - If a non-target file like `src/agent/backends/acp/AcpSdkBackend.test.ts` fails before/alongside your target area, treat it as a separate baseline issue.
    - Do not assume all red tests are caused by your current change.
 
-2. **Separate environment-gated integration tests from logic regressions**
-   - `src/runner/runner.integration.test.ts` depends on local hub reachability and hook timing.
-   - A failure like `Hook timed out in 10000ms` in `beforeEach` is environment-or-runtime-timing evidence first, not automatic proof that the edited assertion path is wrong.
+2. **Separate environment issues from logic regressions**
+   - Failures such as hook timeouts, port conflicts, permission errors, or missing dependencies should be treated as environment/runtime evidence first, not automatic proof that the edited assertion path is wrong.
+   - If a test depends on real local processes, network access, or external services, verify those prerequisites before concluding there is a product regression.
 
 3. **For process-lifecycle changes, verify state-transition contracts explicitly**
    - If command behavior depends on old/new PID handoff, tests must assert PID replacement rather than just "some runner is alive".
@@ -63,20 +62,20 @@ When a CLI-focused change triggers `bun run test:cli` failures, triage in this o
    - Then inspect diff and failing stack sites.
    - Then classify failures into:
      - unrelated baseline failure
-     - environment-gated integration failure
+     - environment or dependency issue
      - true regression in changed contract
 
 ### Local Runner / Production-Business Isolation Contract
 
-For CLI runner integration tests and any test that starts real local processes:
+For any test that starts real local processes:
 
-- Treat local `runner` / `session` lifecycle tests as **host-affecting** by default, even when they use isolated `ZS_HOME`.
+- Treat local `runner` / `session` lifecycle tests as **host-affecting** by default.
 - Isolation of state files/log directories does **not** guarantee isolation of:
   - local background processes
   - ports / sockets
   - machine resources
   - currently running developer workflows in the same worktree
-- If the machine is serving real production business or business-critical local automation, do **not** run disruptive integration tests on that machine.
+- If the machine is serving real production business or business-critical local automation, do **not** run disruptive tests on that machine.
 - Allowed policy must be explicit:
   - **Production / business environment**: no interference allowed
   - **Developer local environment**: interference is acceptable only if the operator intentionally runs the test and understands it may stop/restart local runner processes
@@ -94,10 +93,9 @@ When changing CLI process launch behavior (`spawnZhushenCLI`, agent entrypoints,
 - In development mode, the runtime must start from a location where TS entrypoints, aliases, and assets resolve correctly.
 - If the product semantics need a user-requested working directory, pass it explicitly as data/config/env instead of overloading process execution cwd.
 - Any helper that changes spawn semantics must be reviewed across all agent entrypoints, not only the first failing path.
-- Integration tests must verify both:
+- Verification involving real process startup must confirm both:
   - runtime can start successfully
   - session metadata/behavior still reflects the requested working directory
-
 
 If CI adds coverage gating, reference policy from `coverage-policy.md` (single source of truth).
 

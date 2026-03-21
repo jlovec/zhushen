@@ -1,17 +1,5 @@
 import { defineConfig } from 'vitest/config'
-import { resolve, join } from 'node:path'
-import { tmpdir } from 'node:os'
-
-import dotenv from 'dotenv'
-
-const testEnv = dotenv.config({
-    path: '.env.integration-test'
-}).parsed
-
-const defaultIsolatedHome = join(
-    tmpdir(),
-    `zs-integration-test-${process.pid}-${process.cwd().replace(/[\\/]/g, '_')}`
-)
+import { resolve } from 'node:path'
 
 export default defineConfig({
     test: {
@@ -28,11 +16,6 @@ export default defineConfig({
                 '**/*.config.*',
                 '**/mockData/**',
             ],
-        },
-        env: {
-            ...process.env,
-            ...testEnv,
-            ZS_HOME: process.env.ZS_HOME || testEnv?.ZS_HOME || defaultIsolatedHome,
         },
         alias: {
             // Mock bun-pty for test environment (vitest runs in Node.js, not Bun)

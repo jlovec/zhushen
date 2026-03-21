@@ -43,5 +43,4 @@
 ## 代码库中的示例
 
 - `web/src/chat/reducer.equivalence.test.ts`（基于场景的输入矩阵）
-- `cli/src/runner/runner.integration.test.ts`（偏集成式测试数据准备）
 - `hub/src/sync/teams.test.ts`（同步事件测试数据场景）

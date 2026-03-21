@@ -288,22 +288,6 @@ Session webhook：会话创建后主动上报。
    - 等待 1 秒
    - 若仍存活再发 SIGKILL
 
-## 8. 集成测试
-
-### 测试环境
-- 需要 `.env.integration-test`
-- 使用本地 zhushen-hub（`http://localhost:3006`）
-- 使用独立 `~/.zhushen-dev-test` 目录
-
-### 关键测试场景
-- 会话列表、拉起、停止
-- 外部会话 webhook 跟踪
-- SIGTERM / SIGKILL 优雅关闭
-- 防止多 runner 并发
-- 版本不匹配检测
-- 目录创建审批流程
-- 并发会话压力测试
-
 ---
 
 # 机器同步架构：拆分 Metadata 与 Runner State
