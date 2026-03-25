@@ -103,6 +103,9 @@ jobs:
         run: |
           docker run --rm "$ZS_RUNNER_IMAGE" zs --help
           docker run --rm "$ZS_RUNNER_IMAGE" bun --version
+          docker run --rm "$ZS_RUNNER_IMAGE" docker --version
+          docker run --rm "$ZS_RUNNER_IMAGE" docker compose version
+          docker run --rm "$ZS_RUNNER_IMAGE" glab --version
 
       - name: Create smoke env
         run: |

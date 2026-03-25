@@ -23,6 +23,23 @@ function isNonEmptyString(value: unknown): value is string {
     return typeof value === 'string' && value.trim().length > 0;
 }
 
+function resolveRequiredConfigValue(
+    envValue: unknown,
+    settingsValue: unknown,
+    key: 'ANTHROPIC_API_KEY' | 'ANTHROPIC_BASE_URL',
+    settingsPath: string
+): string {
+    if (isNonEmptyString(envValue)) {
+        return envValue.trim();
+    }
+
+    if (isNonEmptyString(settingsValue)) {
+        return settingsValue.trim();
+    }
+
+    throw new Error(`缺少 Claude 启动配置: ${key}。请先设置环境变量，或在 ${settingsPath} 的 .env 中提供对应字段。`);
+}
+
 export function getRepoRoot(): string {
     return dirname(dirname(dirname(dirname(import.meta.dir))));
 }
@@ -54,38 +71,22 @@ export function readClaudeSettingsEnv(settingsPath: string = getClaudeSettingsPa
 }
 
 export function resolveStartupConfig(env: NodeJS.ProcessEnv = process.env, settingsPath?: string): StartupConfig {
+    const resolvedSettingsPath = settingsPath ?? getClaudeSettingsPath();
     const settingsEnv = readClaudeSettingsEnv(settingsPath);
 
-    const anthropicApiKey = isNonEmptyString(env.ANTHROPIC_API_KEY)
-        ? env.ANTHROPIC_API_KEY.trim()
-        : isNonEmptyString(settingsEnv.ANTHROPIC_API_KEY)
-            ? settingsEnv.ANTHROPIC_API_KEY.trim()
-            : null;
-
-    const anthropicBaseUrl = isNonEmptyString(env.ANTHROPIC_BASE_URL)
-        ? env.ANTHROPIC_BASE_URL.trim()
-        : isNonEmptyString(settingsEnv.ANTHROPIC_BASE_URL)
-            ? settingsEnv.ANTHROPIC_BASE_URL.trim()
-            : null;
-
-    const missingKeys: string[] = [];
-    if (!anthropicApiKey) {
-        missingKeys.push('ANTHROPIC_API_KEY');
-    }
-    if (!anthropicBaseUrl) {
-        missingKeys.push('ANTHROPIC_BASE_URL');
-    }
-
-    if (missingKeys.length > 0) {
-        const resolvedSettingsPath = settingsPath ?? getClaudeSettingsPath();
-        throw new Error(
-            `缺少 Claude 启动配置: ${missingKeys.join(', ')}。请先设置环境变量，或在 ${resolvedSettingsPath} 的 .env 中提供对应字段。`
-        );
-    }
-
     return {
-        anthropicApiKey,
-        anthropicBaseUrl
+        anthropicApiKey: resolveRequiredConfigValue(
+            env.ANTHROPIC_API_KEY,
+            settingsEnv.ANTHROPIC_API_KEY,
+            'ANTHROPIC_API_KEY',
+            resolvedSettingsPath
+        ),
+        anthropicBaseUrl: resolveRequiredConfigValue(
+            env.ANTHROPIC_BASE_URL,
+            settingsEnv.ANTHROPIC_BASE_URL,
+            'ANTHROPIC_BASE_URL',
+            resolvedSettingsPath
+        )
     };
 }
 
