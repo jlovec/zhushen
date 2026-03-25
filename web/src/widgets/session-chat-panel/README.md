@@ -1,5 +1,8 @@
 # session-chat-panel Widget
 
+> Deprecated：新代码请直接使用 `@/components/SessionChat`。
+> `SessionChatPanel` 仅为兼容旧导出保留，不再维护独立实现。
+
 会话聊天面板组件，显示聊天消息和输入框。
 
 ## 功能
@@ -20,10 +23,12 @@
 
 ## 使用
 
-```tsx
-import { SessionChatPanel } from '@/widgets/session-chat-panel'
+推荐直接使用唯一主容器：
 
-<SessionChatPanel
+```tsx
+import { SessionChat } from '@/components/SessionChat'
+
+<SessionChat
   api={apiClient}
   session={session}
   messages={messages}
@@ -40,4 +45,10 @@ import { SessionChatPanel } from '@/widgets/session-chat-panel'
   onFlushPending={() => {}}
   onAtBottomChange={(atBottom) => {}}
 />
+```
+
+如需兼容旧代码，仍可临时使用：
+
+```tsx
+import { SessionChatPanel } from '@/widgets/session-chat-panel'
 ```
