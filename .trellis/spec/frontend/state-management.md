@@ -205,6 +205,16 @@ const reduced = reduceChatBlocks(normalizedMessages, props.session.agentState)
 - 某个字段是“原始窗口事实”（例如 pending 原始数量），还是“给用户展示的结果”（例如可见 pending 数）？
 - 如果 session 切换后 UI 泄漏旧消息，应该先查 `message-window-store`、`useMessages` 还是 `SessionChat`？答案应当明确且唯一。
 
+### SSE visibility 上报契约
+
+当页面可见性依赖独立的 `POST /api/visibility` 上报，而真实订阅身份来自 SSE 握手时，必须遵守以下契约：
+
+- `subscriptionId` 只能来自 SSE `connection-changed` 事件，不得本地构造或复用旧值。
+- SSE 重连 / session 切换时，必须先让旧 `subscriptionId` 失效，再启动新一轮 visibility 上报。
+- 对旧 `subscriptionId` 的 404 响应应视为**订阅已失效**，优先停止旧重试链，而不是无限按网络错误重试。
+- visibility reporter 只负责“把当前页面状态上报给当前有效 subscription”，不得偷偷承担连接恢复或 subscription 修复语义。
+- 回归测试至少覆盖：首次连接、页面刷新后重连、session 切换后三种场景。
+
 ---
 
 ## 何时使用全局状态
