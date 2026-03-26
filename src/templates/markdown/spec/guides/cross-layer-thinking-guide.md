@@ -240,7 +240,7 @@ Source → Transform → Store → Retrieve → Transform → Display
 
 当你修改聊天消息展示、会话切换、pending 消息、自动滚动或聊天时间线聚合时，不要把它当成单个组件问题；这实际上是一个跨层契约：
 
-- [ ] **先定义唯一事实源**：`hub/src/store/messages.ts` 的持久化消息序列、`web/src/lib/message-window-store.ts` 的窗口态、`web/src/widgets/session-chat-panel/ui/SessionChatPanel.tsx` 的展示派生，三者里哪一层负责“事实”，哪一层只负责“视图裁剪”？
+- [ ] **先定义唯一事实源**：`hub/src/store/messages.ts` 的持久化消息序列、`web/src/lib/message-window-store.ts` 的窗口态、`web/src/components/SessionChat.tsx` 的展示派生，三者里哪一层负责“事实”，哪一层只负责“视图裁剪”？
 - [ ] **同一语义只允许一层决策**：诸如“用户消息在非底部进入 pending、agent 消息立即展示”“是否隐藏 optimistic 泡泡”“消息去重 / 合并 / 截断”这类规则，是否只有一层负责，而不是 store、query cache、组件 reducer 各写一遍？
 - [ ] **session 身份切换是否先清作用域再派生 UI**：`session.id` 改变时，所有 `useRef`/模块级 cache/Map store 是否先清空旧会话缓存，再计算新会话的 normalized blocks、pending count、warning 与 scroll 状态？
 - [ ] **事件流顺序是否明确**：SSE / 拉取刷新 / optimistic append / flush pending 到来顺序不同时，UI 是否仍遵守同一条时间线契约，而不是因为“当前是否在底部”临时改写消息可见性语义？
@@ -251,7 +251,7 @@ Source → Transform → Store → Retrieve → Transform → Display
 
 典型失败模式：
 - Hub 提供的是按 `seq` 排序的消息事实流，但 Web 侧同时在 query cache、message-window-store、chat block reducer 里重复做合并与裁剪，最终没人能说清哪一层负责真实时间线。
-- `SessionChatPanel` 以为自己只是展示层，实际上又维护 `normalizedCacheRef` / `blocksByIdRef`；`message-window-store` 又维护 pending/visible/window；两边都在偷偷决定“什么该显示”。
+- 历史案例：`SessionChatPanel` 以为自己只是展示层，实际上又维护 `normalizedCacheRef` / `blocksByIdRef`；`message-window-store` 又维护 pending/visible/window；两边都在偷偷决定“什么该显示”。
 - 为了改善“用户离开底部时的体验”，store 仅把 user 消息放入 pending、让 agent 消息立即显示；短期上看像是 UX 优化，长期却把消息展示语义拆成了按角色分叉的隐式契约。
 - session 切换时虽然组件 `key` 变了，但模块级 store / ref cache / query fallback 还残留旧状态，导致聊天面板看起来像“展示层 bug”，本质却是跨层作用域没有统一。
 

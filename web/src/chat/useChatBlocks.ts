@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef } from 'react'
 import { normalizeDecryptedMessage } from './normalize'
 import { reduceChatBlocks } from './reducer'
 import { reconcileChatBlocks } from './reconcile'
+import { syncChatBlockSessionScope } from './sessionScope'
 import type { ChatBlock, NormalizedMessage } from './types'
 import type { AgentState, DecryptedMessage } from '@/types/api'
 
@@ -42,19 +43,15 @@ function normalizeMessagesWithCache(
 export function useChatBlocks(messages: DecryptedMessage[], sessionId: string, agentState: AgentState | null | undefined) {
     const normalizedCacheRef = useRef<Map<string, NormalizedCacheEntry>>(new Map())
     const blocksByIdRef = useRef<Map<string, ChatBlock>>(new Map())
-    const prevSessionIdRef = useRef<string | null>(null)
-
-    useEffect(() => {
-        normalizedCacheRef.current.clear()
-        blocksByIdRef.current.clear()
-    }, [sessionId])
+    const sessionScopeRef = useRef<string | null>(null)
 
     const normalizedMessages: NormalizedMessage[] = useMemo(() => {
-        if (prevSessionIdRef.current !== null && prevSessionIdRef.current !== sessionId) {
-            normalizedCacheRef.current.clear()
-            blocksByIdRef.current.clear()
-        }
-        prevSessionIdRef.current = sessionId
+        syncChatBlockSessionScope(
+            sessionId,
+            sessionScopeRef,
+            normalizedCacheRef.current,
+            blocksByIdRef.current
+        )
 
         return normalizeMessagesWithCache(messages, normalizedCacheRef.current)
     }, [messages, sessionId])

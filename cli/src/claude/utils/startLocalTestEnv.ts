@@ -53,6 +53,14 @@ export function readClaudeSettingsEnv(settingsPath: string = getClaudeSettingsPa
     }
 }
 
+function requireStartupValue(value: string | null, key: string, missingKeys: string[]): string {
+    if (value) {
+        return value;
+    }
+    missingKeys.push(key);
+    return '';
+}
+
 export function resolveStartupConfig(env: NodeJS.ProcessEnv = process.env, settingsPath?: string): StartupConfig {
     const settingsEnv = readClaudeSettingsEnv(settingsPath);
 
@@ -69,12 +77,8 @@ export function resolveStartupConfig(env: NodeJS.ProcessEnv = process.env, setti
             : null;
 
     const missingKeys: string[] = [];
-    if (!anthropicApiKey) {
-        missingKeys.push('ANTHROPIC_API_KEY');
-    }
-    if (!anthropicBaseUrl) {
-        missingKeys.push('ANTHROPIC_BASE_URL');
-    }
+    const resolvedApiKey = requireStartupValue(anthropicApiKey, 'ANTHROPIC_API_KEY', missingKeys);
+    const resolvedBaseUrl = requireStartupValue(anthropicBaseUrl, 'ANTHROPIC_BASE_URL', missingKeys);
 
     if (missingKeys.length > 0) {
         const resolvedSettingsPath = settingsPath ?? getClaudeSettingsPath();
@@ -84,8 +88,8 @@ export function resolveStartupConfig(env: NodeJS.ProcessEnv = process.env, setti
     }
 
     return {
-        anthropicApiKey,
-        anthropicBaseUrl
+        anthropicApiKey: resolvedApiKey,
+        anthropicBaseUrl: resolvedBaseUrl
     };
 }
 

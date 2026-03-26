@@ -36,7 +36,7 @@ export type SessionChatProps = {
 
 /**
  * 聊天页面唯一主容器。
- * SessionChatPanel 仅保留为兼容导出，不再维护独立实现。
+ * 聊天主容器统一收敛在 `SessionChat`，不再维护 `SessionChatPanel` 兼容导出。
  */
 export function SessionChat(props: SessionChatProps) {
     const { haptic } = usePlatform()
