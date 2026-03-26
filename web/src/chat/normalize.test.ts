@@ -98,6 +98,43 @@ describe('normalizeDecryptedMessage', () => {
         })
     })
 
+
+    it('keeps cli canonical user messages on the canonical user path', () => {
+        const message: DecryptedMessage = {
+            id: 'msg-cli-canonical',
+            seq: 3,
+            localId: null,
+            createdAt: 345,
+            content: {
+                role: 'user',
+                content: {
+                    type: 'text',
+                    text: 'hello from cli',
+                },
+                meta: {
+                    sentFrom: 'cli',
+                },
+            },
+        }
+
+        expect(normalizeDecryptedMessage(message)).toEqual({
+            id: 'msg-cli-canonical',
+            localId: null,
+            createdAt: 345,
+            role: 'user',
+            isSidechain: false,
+            content: {
+                type: 'text',
+                text: 'hello from cli',
+                attachments: undefined,
+            },
+            meta: {
+                sentFrom: 'cli',
+            },
+            status: undefined,
+            originalText: undefined,
+        })
+    })
     it('falls back to legacy user normalization', () => {
         const message: DecryptedMessage = {
             id: 'msg-2',

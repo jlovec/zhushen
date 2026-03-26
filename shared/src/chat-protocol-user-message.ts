@@ -3,7 +3,7 @@ import { isObject } from './utils'
 import { unwrapRoleWrappedRecordEnvelope } from './messages'
 
 type CanonicalUserMessageMeta = {
-    sentFrom?: 'webapp'
+    sentFrom?: string
 }
 
 type CanonicalUserMessageTextContent = {
@@ -21,7 +21,7 @@ export type CanonicalUserMessage = {
 export function buildCanonicalUserMessage(input: {
     text: string
     attachments?: AttachmentMetadata[]
-    sentFrom?: 'webapp'
+    sentFrom?: string
 }): CanonicalUserMessage {
     return {
         role: 'user',
@@ -62,6 +62,6 @@ function isCanonicalUserMessageTextContent(value: unknown): value is CanonicalUs
 function isCanonicalUserMessageMeta(value: unknown): value is CanonicalUserMessageMeta | undefined {
     if (value === undefined) return true
     if (!isObject(value)) return false
-    if ('sentFrom' in value && value.sentFrom !== undefined && value.sentFrom !== 'webapp') return false
+    if ('sentFrom' in value && value.sentFrom !== undefined && typeof value.sentFrom !== 'string') return false
     return true
 }

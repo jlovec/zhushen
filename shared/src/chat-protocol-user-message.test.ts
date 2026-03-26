@@ -57,6 +57,29 @@ describe('chat-protocol-user-message', () => {
         })
     })
 
+    it('parses canonical user message with cli sentFrom metadata', () => {
+        expect(parseCanonicalUserMessage({
+            role: 'user',
+            content: {
+                type: 'text',
+                text: 'hello from cli',
+            },
+            meta: {
+                sentFrom: 'cli',
+            },
+        })).toEqual({
+            role: 'user',
+            content: {
+                type: 'text',
+                text: 'hello from cli',
+                attachments: undefined,
+            },
+            meta: {
+                sentFrom: 'cli',
+            },
+        })
+    })
+
     it('returns null for non canonical user payload', () => {
         expect(parseCanonicalUserMessage({
             role: 'user',
