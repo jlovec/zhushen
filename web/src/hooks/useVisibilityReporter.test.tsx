@@ -80,6 +80,46 @@ describe('useVisibilityReporter', () => {
         })
     })
 
+    it('stops retrying stale subscriptions after namespace_mismatch', async () => {
+        const setVisibility = vi
+            .fn<() => Promise<void>>()
+            .mockRejectedValueOnce(createApiError(404, {
+                error: 'Subscription not found',
+                reason: 'namespace_mismatch',
+                trackedNamespace: 'beta',
+            }))
+            .mockResolvedValueOnce(undefined)
+
+        const api = { setVisibility } as never
+        const { rerender } = renderHook(
+            ({ subscriptionId }) => useVisibilityReporter({
+                api,
+                subscriptionId,
+                enabled: true,
+            }),
+            {
+                initialProps: { subscriptionId: 'sub-1' },
+            }
+        )
+
+        await vi.runAllTimersAsync()
+        expect(setVisibility).toHaveBeenCalledTimes(1)
+
+        await act(async () => {
+            await vi.advanceTimersByTimeAsync(2000)
+        })
+        expect(setVisibility).toHaveBeenCalledTimes(1)
+
+        rerender({ subscriptionId: 'sub-2' })
+
+        await vi.runAllTimersAsync()
+        expect(setVisibility).toHaveBeenCalledTimes(2)
+        expect(setVisibility).toHaveBeenLastCalledWith({
+            subscriptionId: 'sub-2',
+            visibility: 'visible',
+        })
+    })
+
     it('keeps retrying current subscription for non-classified errors', async () => {
         const setVisibility = vi
             .fn<() => Promise<void>>()

@@ -26,7 +26,7 @@ function parseVisibilityErrorReason(error: unknown): VisibilityErrorReason {
 }
 
 export function shouldRetryVisibilityUpdate(error: unknown): boolean {
-    return parseVisibilityErrorReason(error) !== 'subscription_not_found'
+    return parseVisibilityErrorReason(error) === null
 }
 
 export function useVisibilityReporter(options: {

@@ -13,14 +13,14 @@ describe('shouldRetryVisibilityUpdate', () => {
         ))).toBe(false)
     })
 
-    it('returns true for namespace mismatch until evidence says otherwise', () => {
+    it('returns false for namespace mismatch 404 because retry cannot self-heal', () => {
         expect(shouldRetryVisibilityUpdate(new ApiError(
             'HTTP 404 Not Found',
             404,
             'Subscription not found',
             '{"error":"Subscription not found","reason":"namespace_mismatch","trackedNamespace":"beta"}',
             { error: 'Subscription not found', reason: 'namespace_mismatch', trackedNamespace: 'beta' }
-        ))).toBe(true)
+        ))).toBe(false)
     })
 
     it('returns true for generic network or non-404 failures', () => {
