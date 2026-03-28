@@ -13,15 +13,11 @@
 ## 快速开始
 
 ```bash
-npx @jlovec/zhushen hub --relay     # 启动 hub 并开启端到端加密中继
-npx @jlovec/zhushen                 # 运行 claude code
+npx @jlovec/zhushen hub     # 启动 hub（本地访问）
+npx @jlovec/zhushen         # 运行 claude code
 ```
 
-终端会显示一个 URL 和二维码。用手机扫描二维码或在浏览器中打开该 URL 即可访问。
-
-> 中继使用 WireGuard + TLS 进行端到端加密。你的数据从设备到机器全程加密。
-
-如需自托管方案 (Cloudflare Tunnel、Tailscale)，请参阅[安装指南](docs/guide/installation.md)。
+终端会显示本机访问地址；若需手机或局域网设备访问，请显式对外监听，例如：`ZS_LISTEN_HOST=0.0.0.0 npx @jlovec/zhushen hub`。
 
 ## Docker (zs-hub + zs-runner)
 
